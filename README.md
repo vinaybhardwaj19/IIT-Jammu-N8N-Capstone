@@ -1,3 +1,15 @@
+---
+title: SalesAI SDR & SalesFlow n8n Platform
+emoji: 🚀
+colorFrom: indigo
+colorTo: blue
+sdk: gradio
+sdk_version: 6.30.0
+app_file: gradio_app.py
+pinned: false
+license: mit
+---
+
 # 🚀 SalesAI SDR & SalesFlow n8n — Enterprise Sales Intelligence Platform
 ### Indian Institute of Technology (IIT) Jammu — Summer School 2026 Capstone Project
 **Author:** Vinay Bhardwaj ([GitHub](https://github.com/vinaybhardwaj19) | [LinkedIn](https://linkedin.com/in/vinaybhardwaj19))  
@@ -249,14 +261,19 @@ Share that `https://xxxx.gradio.live` link with anyone — it stays active as lo
 
 ---
 
-### Method 3: Cloudflare Tunnel (Free, No Account Needed)
+### Method 3: Cloudflare High-Concurrency Tunnel (Free, Unlimited Users, No Limits)
 
-If ngrok is blocked on your network, use Cloudflare's free quick tunnel:
+If expecting **hundreds or thousands of concurrent visitors**, use Cloudflare Tunnel. It has zero connection rate limits (unlike ngrok's 40 req/min free limit):
+
 ```bash
-# Download cloudflared from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+# 1-Click Automated Cloudflare Runner (auto-downloads single-file binary if needed):
+python start_cloudflare_tunnel.py
+```
+Or run directly if `cloudflared` is installed:
+```bash
 cloudflared tunnel --url http://localhost:7860
 ```
-It gives you an instant `https://<random-name>.trycloudflare.com` URL with unlimited bandwidth.
+It gives you an instant `https://<random-name>.trycloudflare.com` URL backed by Cloudflare's global edge network.
 
 ---
 

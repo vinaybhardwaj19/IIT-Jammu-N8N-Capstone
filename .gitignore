@@ -64,3 +64,4 @@ scratch/
 _*profile*
 .codex-pptx*
 output/
+cloudflared.exe
