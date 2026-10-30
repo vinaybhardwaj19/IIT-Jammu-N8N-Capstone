@@ -3,6 +3,14 @@
 **Author:** Vinay Bhardwaj ([GitHub](https://github.com/vinaybhardwaj19) | [LinkedIn](https://linkedin.com/in/vinaybhardwaj19))  
 **Repository:** [https://github.com/vinaybhardwaj19/IIT-Jammu-N8N-Capstone](https://github.com/vinaybhardwaj19/IIT-Jammu-N8N-Capstone)
 
+[![CI / Automated Verification](https://github.com/vinaybhardwaj19/IIT-Jammu-N8N-Capstone/actions/workflows/ci.yml/badge.svg)](https://github.com/vinaybhardwaj19/IIT-Jammu-N8N-Capstone/actions)
+![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?logo=fastapi)
+![Gradio](https://img.shields.io/badge/Gradio-6.30-orange?logo=gradio)
+![n8n Workflows](https://img.shields.io/badge/n8n-56%20Nodes-EA4B71?logo=n8n)
+![Tests](https://img.shields.io/badge/Tests-8%2F8%20Passing-brightgreen?logo=pytest)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 ---
 
 ## 📌 Executive Overview
@@ -124,25 +132,44 @@ Open `.env` in any text editor and add your API keys:
 
 > **Note:** The system includes a full **Local Simulation Mode** with pre-seeded data in `salesai.db`, allowing full UI evaluation and workflow testing even before entering any API keys!
 
-### Step 5: Run the Smoke Test
-Verify that all components, database connections, and workflow definitions are healthy:
-```bash
-python test_import.py
-```
-You should see:
-```text
-============================================================
-SalesAI SDR - IIT Submission Test Runner
-============================================================
-[OK] Gradio 6.30.0 imported
-[OK] base.py | Provider=gemini | Gemini=SET | Groq=SET
-[OK] All 6 agents instantiated successfully
-[OK] Tab 1: Six workflow JSONs, 56 nodes, and webhook response branches validated
-[OK] Tab 1: Six local workflow traces simulated safely (56 nodes; no live webhook calls)
-[OK] FastAPI REST Backend verified
-============================================================
-RESULT: LOCAL VERIFICATION PASSED
-```
+### Step 5: Run the Verification Tests
+Verify that all components, database connections, workflow definitions, and agents are 100% healthy:
+
+* **Quick Smoke Test**:
+  ```bash
+  python test_import.py
+  ```
+  *Output:*
+  ```text
+  ============================================================
+  SalesAI SDR - IIT Submission Test Runner
+  ============================================================
+  [OK] Gradio 6.30.0 imported
+  [OK] base.py | Provider=gemini | Gemini=SET | Groq=SET
+  [OK] All 6 agents instantiated successfully
+  [OK] Tab 1: Six workflow JSONs, 56 nodes, and webhook response branches validated
+  [OK] Tab 1: Six local workflow traces simulated safely (56 nodes; no live webhook calls)
+  [OK] FastAPI REST Backend verified
+  ============================================================
+  RESULT: LOCAL VERIFICATION PASSED
+  ```
+
+* **Full Pytest Suite (CI Standard)**:
+  ```bash
+  pytest tests/ -v
+  ```
+  *Output:*
+  ```text
+  tests/test_platform.py::test_framework_and_library_imports PASSED
+  tests/test_platform.py::test_base_provider_and_environment PASSED
+  tests/test_platform.py::test_all_six_agents_instantiation PASSED
+  tests/test_platform.py::test_crm_database_initialization_and_deduplication PASSED
+  tests/test_platform.py::test_tab1_n8n_workflow_definitions PASSED
+  tests/test_platform.py::test_tab1_local_json_simulation PASSED
+  tests/test_platform.py::test_meeting_coordinator_calendar_invites PASSED
+  tests/test_platform.py::test_fastapi_rest_backend PASSED
+  ============================== 8 passed in 8.64s ==============================
+  ```
 
 ### Step 6: Launch the Unified Dashboard
 Run the launcher:

@@ -32,9 +32,11 @@ sys.path.insert(0, os.path.join(ROOT, 'Tab2_SalesAI_Agents'))
 sys.path.insert(0, os.path.join(ROOT, 'Tab2_SalesAI_Agents', 'src'))
 
 # Fix Windows encoding
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
