@@ -1,4 +1,4 @@
-"""OpenAI Agents SDK runtime for the six SalesAI SDR specialists.
+"""AI Agents runtime for the six SalesAI SDR specialists (Gemini/Groq by default; OpenAI Agents SDK used only when OPENAI_API_KEY is set).
 
 The legacy ``run(dict) -> dict`` adapter interfaces remain available to the UI
 and API. Model turns themselves run through ``Agent`` and ``Runner``; their

@@ -4,8 +4,8 @@ SalesAI SDR — Full Gradio Dashboard (IIT Jammu Capstone 2026)
 Author  : Vinay Bhardwaj
 Course  : IIT Jammu Summer School 2026
 
-Tab 1 — SalesFlow N8N  : 6 automated sales workflows (N8N + GPT-4o)
-Tab 2 — SalesAI Agents : 6 OpenAI Agents SDK specialists
+Tab 1 — SalesFlow N8N  : 6 automated sales workflows (N8N + Gemini AI)
+Tab 2 — SalesAI Agents : 6 AI Sales Agent specialists (Gemini/Groq, no OpenAI key needed)
 """
 
 import os
@@ -314,7 +314,7 @@ def render_lead_lifecycle_visual() -> str:
 
 
 def render_tech_stack_visual() -> str:
-    provider = "OPENAI AGENTS SDK" if OPENAI_API_KEY else "OPENAI KEY REQUIRED"
+    provider = ("OpenAI SDK + " + os.getenv("OPENAI_AGENT_MODEL","gpt-4.1-mini")) if OPENAI_API_KEY else "Gemini/Groq (default - no OpenAI key needed)"
     provider = escape(provider)
     app_flow = render_visual_flow(
         "What the running AI SDR app uses",
@@ -360,7 +360,7 @@ The diagrams above show the **exported workflow design**. The nodes reference Op
 | 💾 Database node in exports | **PostgreSQL** |
 | 📧 Other configured services | **Gmail, Google APIs, Slack** |
 
-The running Python dashboard is a separate part of the project: its six SalesAI specialists use the OpenAI Agents SDK and local SQLite CRM. The dashboard simulator does not execute the external n8n integrations.
+The running Python dashboard is a separate part of the project: its six SalesAI specialists use Gemini/Groq by default (OpenAI optional). SeeI Agents SDK and local SQLite CRM. The dashboard simulator does not execute the external n8n integrations.
 """
 
 
@@ -825,7 +825,7 @@ def get_dashboard_data():
 | 💰 Recorded Deal Estimates | **{f'${pipeline_val:,.0f}' if pipeline_val is not None else 'Not available — no deal sizes recorded'}** |
 | 🎯 Weighted Estimate | **{f'${weighted_value:,.0f}' if weighted_value is not None else 'Not available — no deal sizes recorded'}** |
 
-> **Agent Runtime:** OpenAI Agents SDK ({os.getenv('OPENAI_AGENT_MODEL', 'gpt-4.1-mini')}) | **DB:** salesai.db | **Refreshed:** {datetime.now().strftime("%H:%M:%S")}
+> **Agent Runtime:** {"OpenAI SDK (" + os.getenv("OPENAI_AGENT_MODEL","gpt-4.1-mini") + ")" if OPENAI_API_KEY else "Gemini/Groq (no OpenAI key needed)"} | **DB:** salesai.db | **Refreshed:** {datetime.now().strftime("%H:%M:%S")}
 """
         return visual_summary, summary, leads_table
     except Exception as e:
@@ -1545,7 +1545,7 @@ def build_gradio_app():
           </p>
           <div style="margin-top:14px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
             <span class="metric-chip">🔧 6 N8N Workflows</span>
-            <span class="metric-chip">🤖 6 OpenAI Agents SDK Agents</span>
+            <span class="metric-chip">⚡ 6 AI Sales Specialist Agents</span>
             <span class="metric-chip">💾 SQLite CRM</span>
             <span class="metric-chip">🌐 Real Web Research</span>
             <span class="metric-chip">📧 SMTP Email</span>
@@ -2031,9 +2031,9 @@ The application dashboard runs six agents through the OpenAI Agents SDK and stor
 #### 🤖 AI Provider
 | Field | Value |
 |-------|-------|
-| Agent Runtime | **OpenAI Agents SDK** |
-| Agent Model | **{os.getenv('OPENAI_AGENT_MODEL', 'gpt-4.1-mini')}** |
-| OpenAI Key | {'✅ Set' if OPENAI_API_KEY else '❌ Not set'} |
+| Agent Runtime | **Gemini / Groq (OpenAI optional)** |
+| Agent Model | **{os.getenv("GEMINI_MODEL","gemini-2.5-flash") if not OPENAI_API_KEY else os.getenv("OPENAI_AGENT_MODEL","gpt-4.1-mini")}** |
+| OpenAI Key | {'✅ Set (GPT-4 mode)' if OPENAI_API_KEY else '➡️ Not needed (Gemini/Groq mode - works great!)'} |
 
 #### 📧 Email (SMTP)
 | Field | Value |
@@ -2071,8 +2071,8 @@ SMTP_FROM_NAME=Your Name
 
 if __name__ == "__main__":
     print("🚀 Starting SalesAI SDR Gradio Dashboard...")
-    print(f"   Agent Runtime: OpenAI Agents SDK ({os.getenv('OPENAI_AGENT_MODEL', 'gpt-4.1-mini')})")
-    print(f"   OpenAI Key   : {'SET' if OPENAI_API_KEY else 'MISSING'}")
+    print(f"   Agent Runtime: Gemini/Groq by default (set OPENAI_API_KEY to use OpenAI SDK)")
+    print(f"   OpenAI Key   : {'SET (GPT-4 mode)' if OPENAI_API_KEY else 'NOT SET - using Gemini/Groq (works fine!)'}")
     print(f"   SMTP Status : {get_smtp_status()['status']}")
     share = "--share" in sys.argv or "--public" in sys.argv or os.environ.get("GRADIO_SHARE", "").lower() == "true"
     print(f"   URL         : http://localhost:7860 {'(🌍 Public Link Enabled)' if share else ''}")

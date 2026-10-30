@@ -22,7 +22,7 @@ def generate_high_load_fallback(prompt: str, system: str = "") -> str:
             "cold_email": "Hi there,\n\nI noticed your team's focus on scaling modern sales operations. Our platform automates lead qualification and rep dispatch in under 2 seconds.\n\nWould you be open to a quick 15-minute discovery call this Thursday at 2 PM?\n\nBest regards,\nSalesAI SDR Team",
             "follow_up_1": "Checking in to see if you had a chance to review my previous note on automated sales workflows.",
             "value_add": "Sharing our latest benchmark report on autonomous sales qualification pipelines.",
-            "break_up": "Final note — let me know if scaling sales automation becomes a priority in the upcoming quarter."
+            "break_up": "Final note - let me know if scaling sales automation becomes a priority in the upcoming quarter."
         })
     elif "research" in lower_p or "enrich" in lower_p or "intelligence" in lower_p:
         return json.dumps({
@@ -54,20 +54,19 @@ def generate_high_load_fallback(prompt: str, system: str = "") -> str:
 """
 SalesAI SDR Multi-Agent System
 ================================
-Tab 2: OpenAI Agents SDK Capstone — IIT Summer School 2026
+Tab 2: OpenAI Agents SDK Capstone - IIT Summer School 2026
 Author: Vinay Bhardwaj
 Domain: B2B Sales Automation using AI Agents
 
-Architecture: 6 OpenAI Agents SDK specialists. The legacy multi-provider
-call_ai() helper remains for compatibility utilities only.
+Architecture: 6 AI specialist agents powered by Gemini / Groq (OpenAI Agents SDK used when OPENAI_API_KEY is set; Gemini/Groq used by default - no OpenAI key required).
 
 Agents:
-1. ProspectResearchAgent    — Deep company & contact intelligence
-2. LeadQualificationAgent   — BANT scoring + ICP matching
-3. EmailWriterAgent         — Hyper-personalized outreach sequences  
-4. MeetingCoordinatorAgent  — Calendar management & scheduling
-5. ObjectionHandlerAgent    — Real-time objection rebuttal engine
-6. CRMManagerAgent          — Pipeline tracking & deal progression
+1. ProspectResearchAgent    - Deep company & contact intelligence
+2. LeadQualificationAgent   - BANT scoring + ICP matching
+3. EmailWriterAgent         - Hyper-personalized outreach sequences  
+4. MeetingCoordinatorAgent  - Calendar management & scheduling
+5. ObjectionHandlerAgent    - Real-time objection rebuttal engine
+6. CRMManagerAgent          - Pipeline tracking & deal progression
 """
 
 import os
@@ -83,7 +82,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ============================================================
-# CONFIGURATION — Compatibility Provider Helper
+# CONFIGURATION - Compatibility Provider Helper
 # ============================================================
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
