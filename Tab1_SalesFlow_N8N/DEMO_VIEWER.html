@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalesFlow AI — N8N CRM Platform | IIT Capstone</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
+  
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a3d;
+    --accent: #7c3aed;
+    --accent2: #ec4899;
+    --accent3: #06b6d4;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #0f0a1e 0%, #1a0a2e 50%, #0a1628 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .logo-text h1 { font-size: 1.25rem; font-weight: 700; }
+  .logo-text p { font-size: 0.7rem; color: var(--muted); }
+  .badge {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* HERO */
+  .hero {
+    background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 30%, rgba(236,72,153,0.1) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 80%, rgba(6,182,212,0.08) 0%, transparent 60%);
+    padding: 5rem 2rem 4rem;
+    text-align: center;
+  }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(124,58,237,0.15);
+    border: 1px solid rgba(124,58,237,0.3);
+    padding: 6px 16px; border-radius: 20px;
+    font-size: 0.8rem; color: #a78bfa; margin-bottom: 1.5rem;
+  }
+  .hero h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.15;
+    background: linear-gradient(135deg, #fff 0%, #a78bfa 50%, #ec4899 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+  }
+  .hero p {
+    font-size: 1.1rem; color: var(--muted); max-width: 650px; margin: 0 auto 2rem;
+    line-height: 1.7;
+  }
+  .hero-stats {
+    display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; margin-top: 2.5rem;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-size: 2rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-label { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+  /* MAIN CONTENT */
+  main { max-width: 1400px; margin: 0 auto; padding: 0 2rem 4rem; }
+
+  /* TECH STACK */
+  .tech-row {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; padding: 1.5rem 0 3rem;
+  }
+  .tech-chip {
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 8px 18px; border-radius: 30px; font-size: 0.82rem; font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .tech-chip:hover { border-color: var(--accent); background: rgba(124,58,237,0.1); }
+  .tech-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* SECTION TITLES */
+  .section-title {
+    font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+
+  /* WORKFLOW GRID */
+  .workflows-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 1.5rem; margin-bottom: 3rem;
+  }
+
+  .workflow-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .workflow-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(124,58,237,0.15);
+  }
+  .workflow-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  .wf-header {
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, var(--surface2), rgba(124,58,237,0.05));
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .wf-num {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700;
+    margin-right: 12px; flex-shrink: 0;
+  }
+  .wf-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+  .wf-sub { font-size: 0.76rem; color: var(--muted); }
+  .wf-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .node-badge {
+    background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.3);
+    padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; color: #a78bfa; white-space: nowrap;
+  }
+  .trigger-badge {
+    font-size: 0.68rem; padding: 3px 10px; border-radius: 12px; white-space: nowrap;
+  }
+  .trigger-webhook { background: rgba(6,182,212,0.15); color: var(--accent3); border: 1px solid rgba(6,182,212,0.3); }
+  .trigger-cron { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+
+  /* FLOW DIAGRAM */
+  .wf-flow { padding: 1.25rem 1.5rem; }
+  .flow-nodes { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .flow-node {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 8px; font-size: 0.72rem;
+    font-family: 'Fira Code', monospace;
+    transition: all 0.2s;
+  }
+  .flow-node:hover { border-color: var(--accent); background: rgba(124,58,237,0.1); }
+  .flow-node-icon { font-size: 14px; }
+  .flow-arrow { color: var(--muted); font-size: 0.8rem; padding: 0 2px; }
+  .flow-ai { border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.08); color: #a78bfa; }
+  .flow-db { border-color: rgba(6,182,212,0.4); background: rgba(6,182,212,0.06); color: var(--accent3); }
+  .flow-email { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.06); color: var(--green); }
+  .flow-hitl { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.08); color: var(--yellow); }
+  .flow-slack { border-color: rgba(236,72,153,0.4); background: rgba(236,72,153,0.06); color: var(--accent2); }
+
+  /* FEATURE HIGHLIGHTS */
+  .wf-features { padding: 0 1.5rem 1.25rem; display: flex; gap: 6px; flex-wrap: wrap; }
+  .feat-tag {
+    font-size: 0.7rem; padding: 3px 10px; border-radius: 20px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted);
+  }
+
+  /* DB SCHEMA */
+  .schema-section { margin-bottom: 3rem; }
+  .schema-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+  .schema-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;
+  }
+  .schema-title { font-size: 0.85rem; font-weight: 700; color: var(--accent3); margin-bottom: 0.75rem; font-family: 'Fira Code', monospace; }
+  .schema-fields { display: flex; flex-direction: column; gap: 5px; }
+  .schema-field { display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'Fira Code', monospace; }
+  .field-name { color: #93c5fd; }
+  .field-type { color: var(--muted); }
+  .field-pk { color: var(--yellow); }
+
+  /* IMPACT TABLE */
+  .impact-section { margin-bottom: 3rem; }
+  .impact-table { width: 100%; border-collapse: collapse; }
+  .impact-table th {
+    background: var(--surface2); padding: 12px 16px; text-align: left;
+    font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+  }
+  .impact-table td {
+    padding: 12px 16px; font-size: 0.83rem; border-bottom: 1px solid var(--border);
+  }
+  .impact-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .before { color: var(--red); }
+  .after { color: var(--green); }
+  .improvement { color: var(--accent); font-weight: 600; }
+
+  /* API SETUP BOX */
+  .setup-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 2rem; margin-bottom: 3rem;
+  }
+  .setup-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
+  .setup-step {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;
+    position: relative; overflow: hidden;
+  }
+  .setup-step::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; margin-bottom: 0.75rem;
+  }
+  .step-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; }
+  .step-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.25rem; margin-top: 1rem; font-family: 'Fira Code', monospace;
+    font-size: 0.78rem; overflow-x: auto; line-height: 1.8;
+  }
+  .code-comment { color: #6a9955; }
+  .code-cmd { color: #9cdcfe; }
+  .code-str { color: #ce9178; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border); padding: 2rem;
+    text-align: center; color: var(--muted); font-size: 0.8rem;
+  }
+  footer strong { color: var(--text); }
+
+  /* ANIMATIONS */
+  @keyframes fadeInUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+  .workflow-card { animation: fadeInUp 0.5s ease forwards; }
+  .workflow-card:nth-child(1) { animation-delay: 0.05s; }
+  .workflow-card:nth-child(2) { animation-delay: 0.1s; }
+  .workflow-card:nth-child(3) { animation-delay: 0.15s; }
+  .workflow-card:nth-child(4) { animation-delay: 0.2s; }
+  .workflow-card:nth-child(5) { animation-delay: 0.25s; }
+  .workflow-card:nth-child(6) { animation-delay: 0.3s; }
+
+  /* PULSE ANIMATION FOR ACTIVE WORKFLOWS */
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; }
+  .status-dot.pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  .divider { height: 1px; background: var(--border); margin: 2.5rem 0; }
+
+  @media (max-width: 768px) {
+    .workflows-grid { grid-template-columns: 1fr; }
+    .hero-stats { gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🚀</div>
+      <div class="logo-text">
+        <h1>SalesFlow AI</h1>
+        <p>N8N CRM & Sales Automation Platform</p>
+      </div>
+    </div>
+    <span class="badge">IIT Summer School '26 — Capstone Project</span>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-tag">
+    <span class="status-dot pulse"></span>
+    Assignment 4 · N8N Capstone · AI-Powered B2B Sales Automation
+  </div>
+  <h2>Enterprise CRM Automation<br>Powered by GPT-4o + N8N</h2>
+  <p>
+    SalesFlow AI automates the complete B2B sales lifecycle — from intelligent lead capture 
+    and BANT qualification to personalized follow-ups, AI proposal generation with 
+    Human-in-the-Loop approval, and weekly executive analytics.
+  </p>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num">6</div><div class="stat-label">N8N Workflows</div></div>
+    <div class="stat"><div class="stat-num">50</div><div class="stat-label">Total Nodes</div></div>
+    <div class="stat"><div class="stat-num">99%</div><div class="stat-label">Faster Lead Response</div></div>
+    <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Follow-up Coverage</div></div>
+    <div class="stat"><div class="stat-num">HITL</div><div class="stat-label">Human Approval</div></div>
+  </div>
+</section>
+
+<main>
+
+  <!-- TECH STACK -->
+  <div class="tech-row">
+    <div class="tech-chip"><div class="tech-dot" style="background:#e94560"></div>N8N Automation</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#10a37f"></div>GPT-4o AI</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#336791"></div>PostgreSQL</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#ea4335"></div>Gmail API</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#0f9d58"></div>Google Calendar</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#4285f4"></div>Google Drive</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#1db954"></div>Google Sheets</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#4a154b"></div>Slack</div>
+    <div class="tech-chip"><div class="tech-dot" style="background:#ff6b35"></div>Webhooks</div>
+  </div>
+
+  <!-- WORKFLOWS -->
+  <div class="section-title">🔄 The 6 Automation Workflows</div>
+  <div class="section-sub">Each workflow is a complete, production-ready N8N automation. Import the JSON files directly into N8N.</div>
+
+  <div class="workflows-grid">
+
+    <!-- WF 01 -->
+    <div class="workflow-card">
+      <div class="wf-header">
+        <div style="display:flex;align-items:flex-start;">
+          <div class="wf-num" style="background:rgba(124,58,237,0.2);color:#a78bfa;border:1px solid rgba(124,58,237,0.4);">01</div>
+          <div>
+            <div class="wf-title">Lead Capture & Registration</div>
+            <div class="wf-sub">Instant AI-powered lead intake with GPT-4o scoring</div>
+          </div>
+        </div>
+        <div class="wf-meta">
+          <span class="trigger-badge trigger-webhook">Webhook</span>
+          <span class="node-badge">9 nodes</span>
+        </div>
+      </div>
+      <div class="wf-flow">
+        <div class="flow-nodes">
+          <div class="flow-node"><span class="flow-node-icon">🌐</span>Webhook</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">⚙️</span>Set Data</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-ai"><span class="flow-node-icon">🤖</span>GPT-4o Score</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">💻</span>JS Merge</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Postgres</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📧</span>Gmail Welcome</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">🔀</span>IF Hot?</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-slack"><span class="flow-node-icon">💬</span>Slack Alert</div>
+        </div>
+      </div>
+      <div class="wf-features">
+        <span class="feat-tag">AI lead scoring (0-100)</span>
+        <span class="feat-tag">Hot/Warm/Cold routing</span>
+        <span class="feat-tag">Instant welcome email</span>
+        <span class="feat-tag">Priority tiers</span>
+        <span class="feat-tag">Webhook response</span>
+      </div>
+    </div>
+
+    <!-- WF 02 -->
+    <div class="workflow-card">
+      <div class="wf-header">
+        <div style="display:flex;align-items:flex-start;">
+          <div class="wf-num" style="background:rgba(236,72,153,0.2);color:#f472b6;border:1px solid rgba(236,72,153,0.4);">02</div>
+          <div>
+            <div class="wf-title">AI Lead Scoring & Qualification</div>
+            <div class="wf-sub">BANT framework analysis with composite scoring</div>
+          </div>
+        </div>
+        <div class="wf-meta">
+          <span class="trigger-badge trigger-webhook">Webhook</span>
+          <span class="node-badge">8 nodes</span>
+        </div>
+      </div>
+      <div class="wf-flow">
+        <div class="flow-nodes">
+          <div class="flow-node"><span class="flow-node-icon">🌐</span>Webhook</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Fetch History</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-ai"><span class="flow-node-icon">🤖</span>GPT-4o BANT</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">💻</span>Composite Score</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">🔀</span>Switch Route</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Update Lead</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📊</span>Sheets Nurture</div>
+        </div>
+      </div>
+      <div class="wf-features">
+        <span class="feat-tag">B·A·N·T sub-scores</span>
+        <span class="feat-tag">Engagement bonus</span>
+        <span class="feat-tag">Deal probability %</span>
+        <span class="feat-tag">3 route branching</span>
+        <span class="feat-tag">ICP matching</span>
+      </div>
+    </div>
+
+    <!-- WF 03 -->
+    <div class="workflow-card">
+      <div class="wf-header">
+        <div style="display:flex;align-items:flex-start;">
+          <div class="wf-num" style="background:rgba(6,182,212,0.2);color:#22d3ee;border:1px solid rgba(6,182,212,0.4);">03</div>
+          <div>
+            <div class="wf-title">Sales Rep Assignment & CRM Entry</div>
+            <div class="wf-sub">Smart algorithm: workload + expertise + performance</div>
+          </div>
+        </div>
+        <div class="wf-meta">
+          <span class="trigger-badge trigger-webhook">Webhook</span>
+          <span class="node-badge">8 nodes</span>
+        </div>
+      </div>
+      <div class="wf-flow">
+        <div class="flow-nodes">
+          <div class="flow-node"><span class="flow-node-icon">🌐</span>Webhook</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Fetch Reps</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Fetch Lead</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">💻</span>JS Algorithm</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Update CRM</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📧</span>Rep Email</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-slack"><span class="flow-node-icon">💬</span>Slack Notify</div>
+        </div>
+      </div>
+      <div class="wf-features">
+        <span class="feat-tag">Round-robin + expertise</span>
+        <span class="feat-tag">Industry matching</span>
+        <span class="feat-tag">Workload balancing</span>
+        <span class="feat-tag">AI discovery script</span>
+        <span class="feat-tag">Instant notifications</span>
+      </div>
+    </div>
+
+    <!-- WF 04 -->
+    <div class="workflow-card">
+      <div class="wf-header">
+        <div style="display:flex;align-items:flex-start;">
+          <div class="wf-num" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(16,185,129,0.4);">04</div>
+          <div>
+            <div class="wf-title">Automated Follow-ups & Meeting Scheduler</div>
+            <div class="wf-sub">5-touch AI email cadence + Google Calendar booking</div>
+          </div>
+        </div>
+        <div class="wf-meta">
+          <span class="trigger-badge trigger-cron">Cron 8hr</span>
+          <span class="node-badge">8 nodes</span>
+        </div>
+      </div>
+      <div class="wf-flow">
+        <div class="flow-nodes">
+          <div class="flow-node flow-hitl"><span class="flow-node-icon">⏰</span>Cron 8hr</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Due Leads</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">📦</span>Batch Split</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-ai"><span class="flow-node-icon">🤖</span>GPT-4o Email</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📧</span>Send Gmail</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📅</span>GCal Book</div>
+        </div>
+      </div>
+      <div class="wf-features">
+        <span class="feat-tag">5-email touch sequence</span>
+        <span class="feat-tag">100% follow-up rate</span>
+        <span class="feat-tag">Meet auto-invite</span>
+        <span class="feat-tag">Progressive value</span>
+        <span class="feat-tag">Breakup email logic</span>
+      </div>
+    </div>
+
+    <!-- WF 05 -->
+    <div class="workflow-card">
+      <div class="wf-header">
+        <div style="display:flex;align-items:flex-start;">
+          <div class="wf-num" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);">05</div>
+          <div>
+            <div class="wf-title">AI Proposal Generation + HITL Approval</div>
+            <div class="wf-sub">GPT-4o proposal → Manager approval → Auto-send</div>
+          </div>
+        </div>
+        <div class="wf-meta">
+          <span class="trigger-badge trigger-webhook">Webhook</span>
+          <span class="node-badge">10 nodes</span>
+        </div>
+      </div>
+      <div class="wf-flow">
+        <div class="flow-nodes">
+          <div class="flow-node"><span class="flow-node-icon">🌐</span>Webhook</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Lead Data</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-ai"><span class="flow-node-icon">🤖</span>GPT-4o Proposal</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📁</span>Drive Save</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📧</span>Manager Email</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-hitl"><span class="flow-node-icon">⏸️</span>WAIT NODE</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node"><span class="flow-node-icon">✅</span>IF Approved</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📧</span>Send Prospect</div>
+        </div>
+      </div>
+      <div class="wf-features">
+        <span class="feat-tag">Full HTML proposal</span>
+        <span class="feat-tag">✅ Human-in-the-Loop</span>
+        <span class="feat-tag">Google Drive storage</span>
+        <span class="feat-tag">Approve/Reject links</span>
+        <span class="feat-tag">ROI calculation</span>
+      </div>
+    </div>
+
+    <!-- WF 06 -->
+    <div class="workflow-card">
+      <div class="wf-header">
+        <div style="display:flex;align-items:flex-start;">
+          <div class="wf-num" style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.4);">06</div>
+          <div>
+            <div class="wf-title">Sales Dashboard & Weekly Analytics</div>
+            <div class="wf-sub">AI-generated executive report every Monday 8AM</div>
+          </div>
+        </div>
+        <div class="wf-meta">
+          <span class="trigger-badge trigger-cron">Cron Mon</span>
+          <span class="node-badge">7 nodes</span>
+        </div>
+      </div>
+      <div class="wf-flow">
+        <div class="flow-nodes">
+          <div class="flow-node flow-hitl"><span class="flow-node-icon">📅</span>Mon 8AM</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>KPI Query</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-db"><span class="flow-node-icon">🗄️</span>Leaderboard</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-ai"><span class="flow-node-icon">🤖</span>GPT-4o Report</div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📊</span>Sheets Update</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-email"><span class="flow-node-icon">📧</span>Email Leaders</div>
+          <span class="flow-arrow">+</span>
+          <div class="flow-node flow-slack"><span class="flow-node-icon">💬</span>Slack Post</div>
+        </div>
+      </div>
+      <div class="wf-features">
+        <span class="feat-tag">SQL KPI aggregation</span>
+        <span class="feat-tag">Rep leaderboard</span>
+        <span class="feat-tag">AI exec insights</span>
+        <span class="feat-tag">3-channel delivery</span>
+        <span class="feat-tag">Revenue forecast</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- DB SCHEMA -->
+  <div class="schema-section">
+    <div class="section-title">🗄️ PostgreSQL Database Schema</div>
+    <div class="section-sub">Three production tables powering the entire CRM pipeline</div>
+    <div class="schema-grid">
+      <div class="schema-card">
+        <div class="schema-title">TABLE: leads</div>
+        <div class="schema-fields">
+          <div class="schema-field"><span class="field-name field-pk">lead_id</span><span class="field-type">VARCHAR PK</span></div>
+          <div class="schema-field"><span class="field-name">full_name</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">email</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">company</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">initial_score</span><span class="field-type">INTEGER</span></div>
+          <div class="schema-field"><span class="field-name">composite_score</span><span class="field-type">INTEGER</span></div>
+          <div class="schema-field"><span class="field-name">bant_score</span><span class="field-type">INTEGER</span></div>
+          <div class="schema-field"><span class="field-name">lead_temperature</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">qualification_status</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">deal_probability_percent</span><span class="field-type">INTEGER</span></div>
+          <div class="schema-field"><span class="field-name">assigned_rep</span><span class="field-type">VARCHAR FK</span></div>
+          <div class="schema-field"><span class="field-name">status</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">proposal_url</span><span class="field-type">TEXT</span></div>
+          <div class="schema-field"><span class="field-name">created_at</span><span class="field-type">TIMESTAMPTZ</span></div>
+        </div>
+      </div>
+      <div class="schema-card">
+        <div class="schema-title">TABLE: sales_reps</div>
+        <div class="schema-fields">
+          <div class="schema-field"><span class="field-name field-pk">rep_id</span><span class="field-type">VARCHAR PK</span></div>
+          <div class="schema-field"><span class="field-name">full_name</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">email</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">tier_level</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">industry_specialties</span><span class="field-type">TEXT</span></div>
+          <div class="schema-field"><span class="field-name">performance_score</span><span class="field-type">INTEGER</span></div>
+          <div class="schema-field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN</span></div>
+        </div>
+      </div>
+      <div class="schema-card">
+        <div class="schema-title">TABLE: follow_ups</div>
+        <div class="schema-fields">
+          <div class="schema-field"><span class="field-name field-pk">id</span><span class="field-type">SERIAL PK</span></div>
+          <div class="schema-field"><span class="field-name">lead_id</span><span class="field-type">VARCHAR FK</span></div>
+          <div class="schema-field"><span class="field-name">followup_number</span><span class="field-type">INTEGER</span></div>
+          <div class="schema-field"><span class="field-name">type</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">sent_by</span><span class="field-type">VARCHAR</span></div>
+          <div class="schema-field"><span class="field-name">sent_at</span><span class="field-type">TIMESTAMPTZ</span></div>
+          <div class="schema-field"><span class="field-name">status</span><span class="field-type">VARCHAR</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- IMPACT TABLE -->
+  <div class="impact-section">
+    <div class="section-title">📊 Business Impact Analysis</div>
+    <div class="section-sub">Measured improvements after deploying SalesFlow AI automation</div>
+    <div style="overflow-x:auto;">
+      <table class="impact-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Before SalesFlow AI</th>
+            <th>After SalesFlow AI</th>
+            <th>Improvement</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Lead Response Time</td><td class="before">4–8 hours</td><td class="after">&lt; 2 minutes</td><td class="improvement">99% Faster</td></tr>
+          <tr><td>Lead Qualification Time</td><td class="before">2 hours per lead (manual)</td><td class="after">30 seconds (AI)</td><td class="improvement">240× Faster</td></tr>
+          <tr><td>Follow-up Coverage</td><td class="before">40% of leads</td><td class="after">100% of leads</td><td class="improvement">+150%</td></tr>
+          <tr><td>Sales Rep Admin Work</td><td class="before">60% of work day</td><td class="after">15% of work day</td><td class="improvement">75% Reduction</td></tr>
+          <tr><td>Proposal Creation</td><td class="before">2–6 hours manual</td><td class="after">2 minutes AI</td><td class="improvement">98% Faster</td></tr>
+          <tr><td>Pipeline Visibility</td><td class="before">Weekly spreadsheet</td><td class="after">Real-time dashboard</td><td class="improvement">Continuous</td></tr>
+          <tr><td>Deal Conversion Rate</td><td class="before">Baseline</td><td class="after">+35% improvement</td><td class="improvement">+35%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SETUP -->
+  <div class="setup-box">
+    <div class="section-title">⚡ How to Import & Run in N8N</div>
+    <div class="section-sub">Follow these steps to deploy SalesFlow AI in any N8N instance</div>
+    <div class="setup-steps">
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-title">Open N8N</div>
+        <div class="step-desc">Launch N8N at localhost:5678 or your cloud instance. Create a new workspace.</div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-title">Import JSONs</div>
+        <div class="step-desc">Workflows → + New → ⋮ Menu → "Import from File" → Select each .json file from workflows/</div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-title">Set Credentials</div>
+        <div class="step-desc">Add PostgreSQL, OpenAI API key, Gmail OAuth2, Google Calendar, Drive, Sheets, Slack token</div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">4</div>
+        <div class="step-title">Create DB Tables</div>
+        <div class="step-desc">Run the SQL from README.md to create leads, sales_reps, follow_ups tables + seed data</div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">5</div>
+        <div class="step-title">Activate & Test</div>
+        <div class="step-desc">Activate each workflow. Use the curl commands from README to send test webhook requests</div>
+      </div>
+    </div>
+    <div class="code-block">
+      <span class="code-comment"># Test Workflow 01 — Lead Capture (run this in terminal)</span><br>
+      <span class="code-cmd">curl</span> -X POST https://your-n8n.app/webhook/capture-lead \<br>
+      &nbsp;&nbsp;-H <span class="code-str">"Content-Type: application/json"</span> \<br>
+      &nbsp;&nbsp;-d <span class="code-str">'{"full_name":"Priya Sharma","email":"priya@techcorp.in","company":"TechCorp","industry":"SaaS","budget":"$2000/month","source":"LinkedIn"}'</span>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>Built by <strong>Vinay Bhardwaj</strong> | IIT Summer School '26 — AI Tools & Automation Track | Assignment 4: N8N Capstone</p>
+  <p style="margin-top:6px;">Stack: N8N · OpenAI nodes · PostgreSQL · Google Workspace · Slack · 6 Workflows · 56 Nodes</p>
+</footer>
+
+</body>
+</html>

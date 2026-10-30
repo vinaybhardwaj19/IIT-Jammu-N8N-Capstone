@@ -1,0 +1,13 @@
+{
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "extraPaths": [
+    "Tab2_SalesAI_Agents/src",
+    "Tab2_SalesAI_Agents"
+  ],
+  "exclude": [
+    "**/__pycache__"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}

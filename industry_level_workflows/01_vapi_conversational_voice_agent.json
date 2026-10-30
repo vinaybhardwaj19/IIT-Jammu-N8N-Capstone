@@ -1,0 +1,285 @@
+{
+  "name": "n8n - vapi voice agent",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "vapi-call-events",
+        "options": {}
+      },
+      "id": "w11-webhook",
+      "name": "Vapi Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        112,
+        304
+      ],
+      "webhookId": "24e9678c-027a-4bb4-abb5-9c48bf73646c"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.message.type }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "end-of-call-report"
+            },
+            {
+              "value2": "tool-calls",
+              "output": 1
+            }
+          ]
+        }
+      },
+      "id": "w11-switch",
+      "name": "Check Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        304,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst msg = items[0].json.body.message;\nreturn [{\n  json: {\n    callerName: msg.customer?.name || 'Anonymous',\n    phoneNumber: msg.customer?.number || 'Unknown',\n    duration: msg.call?.duration || 0,\n    transcript: msg.transcript || 'No transcript available',\n    summary: msg.analysis?.summary || 'No summary available',\n    recordingUrl: msg.recordingUrl || ''\n  }\n}];\n"
+      },
+      "id": "w11-format",
+      "name": "Format Call Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "placeholder-sheet-id",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Caller Name": "={{ $json.callerName }}",
+            "Phone Number": "={{ $json.phoneNumber }}",
+            "Duration": "={{ $json.duration }}",
+            "Summary": "={{ $json.summary }}",
+            "Recording URL": "={{ $json.recordingUrl }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "w11-sheet",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        704,
+        112
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GtXmIl9tXazLjzVN",
+          "name": "Google Sheets OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "\ud83d\udcde *New Vapi Call Completed!*\n\n\ud83d\udc64 *Caller:* {{ $json.callerName }}\n\ud83d\udcf1 *Number:* {{ $json.phoneNumber }}\n\u23f3 *Duration:* {{ $json.duration }}s\n\ud83d\udcdd *Summary:* {{ $json.summary }}\n\n\ud83d\udd17 [Listen to Recording]({{ $json.recordingUrl }})",
+        "additionalFields": {}
+      },
+      "id": "w11-telegram",
+      "name": "Send Call Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        112
+      ],
+      "webhookId": "9a755e44-df30-4ddd-aeab-0c502ff9c77c",
+      "credentials": {
+        "telegramApi": {
+          "id": "U9Hrmueh016O3F4R",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "vinaybhardwaj3230@gmail.com",
+        "subject": "Vapi AI Voice Call Completed: {{ $json.callerName }}",
+        "message": "<h3>Vapi Call Summary Report</h3><p><b>Caller:</b> {{ $json.callerName }}</p><p><b>Phone:</b> {{ $json.phoneNumber }}</p><p><b>Summary:</b> {{ $json.summary }}</p><p><b>Transcript:</b><br>{{ $json.transcript }}</p>",
+        "options": {}
+      },
+      "id": "w11-gmail",
+      "name": "Email Call Details",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        912,
+        256
+      ],
+      "webhookId": "80e88b31-d4a4-402e-835c-24813306925d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "9SOhxOl38UMSqt5S",
+          "name": "Gmail OAuth V2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "w11-respond",
+      "name": "Respond to Vapi Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        512,
+        400
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w11-manual",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        112,
+        160
+      ]
+    }
+  ],
+  "pinData": {
+    "Log to Google Sheets": [
+      {
+        "json": {
+          "status": "success"
+        }
+      }
+    ],
+    "Send Call Alert": [
+      {
+        "json": {
+          "status": "message_sent"
+        }
+      }
+    ],
+    "Email Call Details": [
+      {
+        "json": {
+          "status": "email_sent"
+        }
+      }
+    ],
+    "Format Call Report": [
+      {
+        "json": {
+          "callerName": "John Doe",
+          "phoneNumber": "+15550199",
+          "duration": 42,
+          "transcript": "Hello, I would like to book a call for tomorrow.",
+          "summary": "Customer requested booking support call for tomorrow.",
+          "recordingUrl": "https://vapi-recordings.s3.amazonaws.com/test.mp3"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Format Call Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Event Type": {
+      "main": [
+        [
+          {
+            "node": "Format Call Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Vapi Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Call Report": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Call Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Call Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b0a66be5-2d7d-49aa-8f55-1a218a296bc0",
+  "meta": {
+    "instanceId": "5111b149a4b0f276638fef42ea1665d6c97656e35dbb3b347224eccd37984c92"
+  },
+  "nodeGroups": [],
+  "id": "X7kQwtg2TsFhfKgR",
+  "tags": []
+}

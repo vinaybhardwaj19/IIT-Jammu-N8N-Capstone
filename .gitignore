@@ -1,0 +1,66 @@
+# Secrets & Environment variables - NEVER COMMIT
+.env
+*.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Database / Local SQLite (optional: keep schemas, ignore local locks & WAL)
+*.db-shm
+*.db-wal
+# Note: salesai.db contains demo data for submission evaluation; 
+# if you want to keep the database private, uncomment the line below:
+# salesai.db
+
+# Local pre-edit backups
+*.bak
+
+# Log files & scratch files
+*.log
+scratch/
+.system_generated/
+
+# Browser profiles & temporary builds
+_*profile*
+.codex-pptx*
+output/

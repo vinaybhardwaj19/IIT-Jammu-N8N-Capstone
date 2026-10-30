@@ -1,0 +1,390 @@
+{
+  "name": "02 - AI Lead Scoring & Qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "qualify-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-node-002",
+      "name": "Webhook: Lead Qualification Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.*, \n  COUNT(e.id) as email_opens,\n  COUNT(a.id) as appointments_booked,\n  MAX(e.opened_at) as last_engagement\nFROM leads l\nLEFT JOIN email_logs e ON l.lead_id = e.lead_id AND e.opened = true\nLEFT JOIN appointments a ON l.lead_id = a.lead_id\nWHERE l.lead_id = '{{ $json.body.lead_id }}'\nGROUP BY l.id",
+        "options": {}
+      },
+      "id": "postgres-node-002a",
+      "name": "Postgres: Fetch Lead History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-crm-db",
+          "name": "CRM PostgreSQL"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "chat",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert B2B sales qualification specialist using the BANT framework (Budget, Authority, Need, Timeline). You analyze lead data and behavioral signals to produce accurate qualification scores and actionable sales recommendations. Always respond in structured JSON format only."
+            },
+            {
+              "role": "user",
+              "content": "=Perform a comprehensive BANT qualification analysis for this lead and return a JSON object with:\n- bant_score (0-100)\n- budget_score (0-25): how well their budget aligns with our pricing\n- authority_score (0-25): likelihood they are a decision maker\n- need_score (0-25): strength of business need based on industry pain points\n- timeline_score (0-25): urgency of their purchase timeline\n- qualification_status: QUALIFIED / NEEDS_NURTURING / DISQUALIFIED\n- disqualification_reason: (only if DISQUALIFIED, else null)\n- objections_predicted: array of 3 likely sales objections\n- recommended_script: 3-4 sentence discovery call opener specifically for this lead\n- next_action: specific next step for the sales rep\n- deal_probability_percent: percentage chance of closing this deal\n\nLead Profile:\n- Company: {{ $json.company }}\n- Industry: {{ $json.industry }}\n- Budget Range: {{ $json.budget }}\n- Lead Source: {{ $json.source }}\n- Email Opens: {{ $json.email_opens || 0 }}\n- Appointments Booked: {{ $json.appointments_booked || 0 }}\n- Days Since Registration: {{ Math.floor(($now - new Date($json.created_at)) / 86400000) }}\n- Initial AI Score: {{ $json.initial_score }}\n- Priority Tier: {{ $json.priority_tier }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 1000
+        }
+      },
+      "id": "openai-node-002",
+      "name": "AI: BANT Qualification Analysis",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiContent = $input.item.json.choices[0].message.content;\nconst leadData = $node['Postgres: Fetch Lead History'].json;\n\nlet qualification = {};\ntry {\n  const jsonMatch = aiContent.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) qualification = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  qualification = {\n    bant_score: 60,\n    budget_score: 15,\n    authority_score: 15,\n    need_score: 15,\n    timeline_score: 15,\n    qualification_status: 'NEEDS_NURTURING',\n    disqualification_reason: null,\n    objections_predicted: ['Price concern', 'Need more time', 'Evaluating alternatives'],\n    recommended_script: 'Thank you for your interest. Tell me more about your current sales process challenges.',\n    next_action: 'Schedule discovery call',\n    deal_probability_percent: 35\n  };\n}\n\n// Composite scoring formula\nconst engagement_bonus = Math.min(leadData.email_opens * 2 + leadData.appointments_booked * 10, 20);\nconst composite_score = Math.min(qualification.bant_score + engagement_bonus, 100);\n\nreturn {\n  ...leadData,\n  ...qualification,\n  composite_score,\n  engagement_bonus,\n  qualified_at: new Date().toISOString()\n};"
+      },
+      "id": "code-node-002",
+      "name": "Code: Compute Composite Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.qualification_status }}",
+                    "rightValue": "QUALIFIED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "output": 0
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.qualification_status }}",
+                    "rightValue": "NEEDS_NURTURING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "output": 1
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-node-002",
+      "name": "Switch: Route by Qualification",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "bant_score": "={{ $json.bant_score }}",
+            "composite_score": "={{ $json.composite_score }}",
+            "qualification_status": "={{ $json.qualification_status }}",
+            "deal_probability_percent": "={{ $json.deal_probability_percent }}",
+            "next_action": "={{ $json.next_action }}",
+            "status": "QUALIFIED",
+            "qualified_at": "={{ $json.qualified_at }}"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "column": "lead_id",
+              "value": "={{ $json.lead_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "postgres-node-002b",
+      "name": "Postgres: Update Qualified Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-crm-db",
+          "name": "CRM PostgreSQL"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Nurture Pipeline",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $json.lead_id }}",
+            "Name": "={{ $json.full_name }}",
+            "Company": "={{ $json.company }}",
+            "Score": "={{ $json.composite_score }}",
+            "Status": "NEEDS_NURTURING",
+            "Next Action": "={{ $json.next_action }}",
+            "Date Added": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheets-node-002",
+      "name": "Google Sheets: Add to Nurture List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1240,
+        400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets CRM"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"lead_id\": \"{{ $json.lead_id }}\",\n  \"bant_score\": {{ $json.bant_score }},\n  \"composite_score\": {{ $json.composite_score }},\n  \"qualification_status\": \"{{ $json.qualification_status }}\",\n  \"deal_probability_percent\": {{ $json.deal_probability_percent }},\n  \"next_action\": \"{{ $json.next_action }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-002",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "External integration failed after retries; execution stopped and retained for review."
+      },
+      "id": "0586de18-bbdd-43fb-b15a-9bf6517f239d",
+      "name": "Stop: Capture Integration Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Lead Qualification Request": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Fetch Lead History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Fetch Lead History": {
+      "main": [
+        [
+          {
+            "node": "AI: BANT Qualification Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: Capture Integration Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: BANT Qualification Analysis": {
+      "main": [
+        [
+          {
+            "node": "Code: Compute Composite Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: Capture Integration Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Compute Composite Score": {
+      "main": [
+        [
+          {
+            "node": "Switch: Route by Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Route by Qualification": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Update Qualified Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets: Add to Nurture List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Update Qualified Lead": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: Capture Integration Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Add to Nurture List": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: Capture Integration Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [],
+  "versionId": "1.0.0"
+}

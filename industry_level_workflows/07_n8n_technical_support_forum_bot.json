@@ -1,0 +1,1971 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"intent\": \"search\",\n  \"keyword\": \"Webhook signature verification\",\n  \"platforms\": \"all\",\n  \"reddit_sort\": \"top\",\n  \"reddit_time\": \"year\",\n  \"n8ncom_sort\": \"likes\",\n  \"n8ncom_time\": \"after:2025-01-01\",\n  \"limit\": 10,\n  \"page\": 1,\n  \"link_url\": \"https://nguyenthieutoan.com\",\n  \"language\": \"vi\",\n  \"confidence\": 0.95\n}",
+        "autoFix": true
+      },
+      "id": "131ad1c0-bb33-4ed1-b07e-43439e513c37",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "position": [
+        -4256,
+        32
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}"
+      },
+      "id": "e6c99b66-658d-4643-b560-06b483199bd6",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -4448,
+        16
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.output.link_url }}",
+        "options": {}
+      },
+      "id": "439200ab-1e43-4458-aadd-30fe644462fc",
+      "name": "If Reddit?",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2912,
+        304
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com{{ $json.comment_url }}",
+        "options": {}
+      },
+      "id": "157b9d76-9081-4825-ad4d-52176c371cc6",
+      "name": "Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2464,
+        160
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "post_title",
+              "cssSelector": "h1"
+            },
+            {
+              "key": "post_author",
+              "cssSelector": "a.author-name"
+            },
+            {
+              "key": "post_content",
+              "cssSelector": "div[slot='text-body']"
+            },
+            {
+              "key": "post_upvotes",
+              "cssSelector": "shreddit-post",
+              "returnValue": "attribute",
+              "attribute": "score"
+            },
+            {
+              "key": "commentCount",
+              "cssSelector": "shreddit-post",
+              "returnValue": "attribute",
+              "attribute": "comment-count"
+            },
+            {
+              "key": "postTime",
+              "cssSelector": "faceplate-timeago",
+              "returnValue": "attribute",
+              "attribute": "ts"
+            },
+            {
+              "key": "flair",
+              "cssSelector": "shreddit-post-flair .flair-content"
+            },
+            {
+              "key": "comment_url",
+              "cssSelector": "faceplate-partial[src^=\"/svc/shreddit/comments/\"]",
+              "returnValue": "attribute",
+              "attribute": "src"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f35d422d-6bf1-43ad-a414-3989c0abe075",
+      "name": "Get Post Content",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        -2688,
+        304
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "comment_author",
+              "cssSelector": "shreddit-comment",
+              "returnValue": "attribute",
+              "attribute": "author",
+              "returnArray": true
+            },
+            {
+              "key": "comment_content",
+              "cssSelector": "shreddit-comment div[slot='comment']",
+              "returnValue": "html",
+              "returnArray": true
+            },
+            {
+              "key": "comment_upvotes",
+              "cssSelector": "shreddit-comment",
+              "returnValue": "attribute",
+              "attribute": "score",
+              "returnArray": true
+            },
+            {
+              "key": "comment_level",
+              "cssSelector": "shreddit-comment",
+              "returnValue": "attribute",
+              "attribute": "depth",
+              "returnArray": true
+            },
+            {
+              "key": "comment_id",
+              "cssSelector": "shreddit-comment",
+              "returnValue": "attribute",
+              "attribute": "thingid",
+              "returnArray": true
+            },
+            {
+              "key": "parent_id",
+              "cssSelector": "shreddit-comment",
+              "returnValue": "attribute",
+              "attribute": "parentid",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "id": "d2c77457-4b74-43fc-8787-6449e7d4fbf7",
+      "name": "Get Comment",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        -2240,
+        160
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Detect User Intent').item.json.output.link_url }}",
+        "options": {}
+      },
+      "id": "22f67ac5-02d7-41ed-840b-904a537145c8",
+      "name": "If n8n Community?",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2912,
+        496
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "topic_title",
+              "cssSelector": "#topic-title a"
+            },
+            {
+              "key": "category",
+              "cssSelector": ".topic-category .category-name"
+            },
+            {
+              "key": "original_poster",
+              "cssSelector": "#post_1 .creator span[itemprop='name']"
+            },
+            {
+              "key": "original_post_content",
+              "cssSelector": "#post_1 div.post[itemprop='text']\t"
+            },
+            {
+              "key": "original_post_likes",
+              "cssSelector": "#post_1 .post-likes"
+            },
+            {
+              "key": "original_post_time",
+              "cssSelector": "#post_1 time.post-time",
+              "returnValue": "attribute",
+              "attribute": "datetime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a4e59ef0-159e-4099-bfca-636af4dfc8d9",
+      "name": "Get Topic Content",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        -2464,
+        400
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "comment_author",
+              "cssSelector": "div.crawler-post[itemprop='comment'] span[itemprop='name']",
+              "returnArray": true
+            },
+            {
+              "key": "comment_content",
+              "cssSelector": "div.crawler-post[itemprop='comment'] div.post[itemprop='text']",
+              "returnValue": "html",
+              "returnArray": true
+            },
+            {
+              "key": "comment_likes",
+              "cssSelector": "div.crawler-post[itemprop='comment'] .post-likes",
+              "returnArray": true
+            },
+            {
+              "key": "comment_post_number",
+              "cssSelector": "div.crawler-post[itemprop='comment'] span[itemprop='position']",
+              "returnArray": true
+            },
+            {
+              "key": "comment_time",
+              "cssSelector": "div.crawler-post[itemprop='comment'] time.post-time",
+              "returnValue": "attribute",
+              "attribute": "datetime",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "838171e0-c801-4ccf-bcb4-b4501f6c58a3",
+      "name": "Get Comment1",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        -2688,
+        592
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "39188959-a286-43a4-b9b7-c8cd2667e225",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.output.platforms }}",
+                    "rightValue": "=all"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "9cc13c1f-e903-4c51-89de-ebd290888cef",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.output.platforms }}",
+                    "rightValue": "reddit"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "940f40a0-4cb0-41a7-8c5e-7e553bc1acf0",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.output.platforms }}",
+                    "rightValue": "n8ncom"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e3aa4967-b214-4312-98fe-51586ea06823",
+      "name": "Platform?",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        -3056,
+        -928
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}"
+      },
+      "id": "f78f3d7c-c2a2-4bb0-a828-ea14a3efb5d4",
+      "name": "Simple Memory1",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -1136,
+        -32
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "349d9d39-197c-498c-b89e-43a760a48905",
+      "name": "Merge Sources1",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        -4224,
+        -1168
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const redditData = items[0].json.data.children;\nconst detailedResults = redditData.map(item => {\n  const data = item.data;\n  return {\n    id: data.id,\n    subreddit: data.subreddit,\n    title: data.title,\n    selftext: data.selftext,\n    author: data.author,\n    created_utc: data.created_utc,\n    created: new Date(data.created_utc * 1000).toLocaleString('vi-VN'),\n    url: 'https://www.reddit.com' + data.permalink,\n    num_comments: data.num_comments,\n    score: data.score,\n    upvote_ratio: data.upvote_ratio,\n    is_original_content: data.is_original_content,\n    flair: data.link_flair_text,\n    thumbnail: data.thumbnail || null\n  }\n});\nreturn [{ json: { \"reddit search result\": detailedResults } }];\n"
+      },
+      "id": "974347e4-9cc5-401c-aeee-061f7dc3d1b2",
+      "name": "Get Only Search Result1",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -4448,
+        -1184
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Set Memory ID Session').item.json.MyTelegramID }}"
+      },
+      "id": "28fa09e7-7101-43d6-b0fe-a73484cb8617",
+      "name": "Simple Memory2",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -3888,
+        -656
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "901d57d5-4172-41ac-86d9-f6ab3f3d8e2a",
+      "name": "Google Gemini Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        -4880,
+        64
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CRED_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "5f8cfce1-1b96-47f5-bf92-0af396ff33e1",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.output.keyword }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a557741e-736e-4927-abd4-fc979c5d71fb",
+      "name": "Has keyword?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -2832,
+        -1008
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "34b96dd6-1da2-44e5-824e-82ed4e13a894",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.output.reddit_sort }}",
+              "rightValue": "top"
+            },
+            {
+              "id": "274e03b5-5692-4132-8fbe-26520efe7965",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.output.reddit_sort }}",
+              "rightValue": "relevance"
+            },
+            {
+              "id": "0d668583-7163-41fc-81df-aebbd5aced96",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.output.reddit_sort }}",
+              "rightValue": "comments"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8dcd3889-5717-4a6f-8b35-92bda6a7d501",
+      "name": "Has time?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -2608,
+        -912
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com/r/n8n/search.json?q={{ $json.output.keyword }}&restrict_sr=1&sort={{ $('Detect User Intent').item.json.output.reddit_sort }}&t={{ $('Detect User Intent').item.json.output.reddit_time }}&limit={{ $json.output.limit }}",
+        "options": {}
+      },
+      "id": "54df9561-fd56-4d89-9177-6e10696144cd",
+      "name": "Reddit Search page JSON (has time)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2384,
+        -816
+      ],
+      "typeVersion": 4
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com/r/n8n/search.json?q={{ $json.output.keyword }}+&restrict_sr=1&sort={{ $json.output.reddit_sort }}&limit={{ $json.output.limit }}",
+        "options": {}
+      },
+      "id": "856824b6-d667-4763-a9e2-757596ca2bf0",
+      "name": "Reddit Search page (no time)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2384,
+        -1008
+      ],
+      "typeVersion": 4
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com/r/n8n/{{ $json.output.reddit_sort }}.json?t={{ $json.output.reddit_time }}&limit={{ $json.output.limit }}",
+        "options": {}
+      },
+      "id": "d1405d74-8160-4c7d-a481-2054f5562285",
+      "name": "Reddit Search page JSON (no keyword)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2384,
+        -1200
+      ],
+      "typeVersion": 4
+    },
+    {
+      "parameters": {
+        "jsCode": "const redditData = items[0].json.data.children;\nconst detailedResults = redditData.map(item => {\n  const data = item.data;\n  return {\n    id: data.id,\n    subreddit: data.subreddit,\n    title: data.title,\n    selftext: data.selftext,\n    author: data.author,\n    created_utc: data.created_utc,\n    created: new Date(data.created_utc * 1000).toLocaleString('vi-VN'),\n    url: 'https://www.reddit.com' + data.permalink,\n    num_comments: data.num_comments,\n    score: data.score,\n    upvote_ratio: data.upvote_ratio,\n    is_original_content: data.is_original_content,\n    flair: data.link_flair_text,\n    thumbnail: data.thumbnail || null\n  }\n});\nreturn [{ json: { \"reddit search result\": detailedResults } }];\n"
+      },
+      "id": "f15b28e7-fe42-40a5-8ea3-c2bae35c928f",
+      "name": "Get Only Reddit Search Result",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2160,
+        -1008
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "url": "=https://community.n8n.io/search.json?q={{ $json.output.keyword }}%20{{ $json.output.n8ncom_time }}%20min_posts%3A0%20in%3Afirst%20{{ $json.output.limit }}%20order%3A{{ $json.output.n8ncom_sort }}",
+        "options": {}
+      },
+      "id": "2e53aaa6-35c7-4cff-9ce9-8918cef681b8",
+      "name": "n8n Community Fetch JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -2384,
+        -624
+      ],
+      "typeVersion": 4
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { \"n8n community search result\": items.map(item => item.json) } }];\n"
+      },
+      "id": "5ac7b30d-29fb-4c85-a6a4-7282907f693d",
+      "name": "Get Only n8n community Search Result",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2160,
+        -624
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "81df18c7-c944-4dbd-949c-7b40f9e072dd",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "leftValue": "={{ $json.output.link_url }}",
+                    "rightValue": "reddit.com"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5c9f113c-79af-4830-8029-bbbc2fb10280",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "leftValue": "={{ $json.output.link_url }}",
+                    "rightValue": "community.n8n.io"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "80a9d15c-9d91-4a29-a807-2b92aeedf6a6",
+      "name": "Open link Reddit or n8n Comunity?",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        -3136,
+        480
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "jsCode": "function stripHtml(html) {\n  if (!html) return '';\n  return String(html).replace(/&nbsp;?/g, ' ').replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim();\n}\nconst at = (arr, i) => (Array.isArray(arr) && i < arr.length ? arr[i] : undefined);\nconst normalizeAuthor = (v) => {\n  const s = (v ?? '').trim();\n  const low = s.toLowerCase();\n  return (!s || low === '[deleted]' || low === '[removed]') ? null : s;\n};\nconst parseUpvotes = (v) => (v === '' || v === null || v === undefined ? null : Number(v));\nconst data = (items?.[0]?.json) || {};\nconst contentById = new Map();\nif (Array.isArray(data.comment_content)) {\n  for (const html of data.comment_content) {\n    if (!html) continue;\n    const txt = String(html);\n    const m = /id\\s*=\\s*\"(t1_[^\"-\\s]+)(?:-[^\"]*)?\"/i.exec(txt);\n    const cid = m?.[1];\n    if (cid && !contentById.has(cid)) contentById.set(cid, stripHtml(txt) || null);\n  }\n}\nconst len = Array.isArray(data.comment_id) ? data.comment_id.length : 0;\nconst out = [];\nfor (let i = 0; i < len; i++) {\n  const cid = at(data.comment_id, i) ?? null;\n  let content = null;\n  if (cid && contentById.has(cid)) {\n    content = contentById.get(cid);\n  } else {\n    const htmlAtIdx = at(data.comment_content, i);\n    if (htmlAtIdx) {\n      const mIdx = /id\\s*=\\s*\"(t1_[^\"-\\s]+)(?:-[^\"]*)?\"/i.exec(String(htmlAtIdx));\n      const idxId = mIdx?.[1] ?? null;\n      content = (idxId && idxId === cid) ? (stripHtml(htmlAtIdx) || null) : null;\n    }\n  }\n  out.push({ comment_id: cid, parent_id: at(data.parent_id, i) ?? null, level: Number(at(data.comment_level, i) ?? 0), author: normalizeAuthor(at(data.comment_author, i)), upvotes: parseUpvotes(at(data.comment_upvotes, i)), content });\n}\nreturn [{ json: { comment: out } }];\n"
+      },
+      "id": "120fe101-18ac-46f0-929d-c516f4e64ed5",
+      "name": "Comment Summary 1",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2016,
+        160
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "function stripHtml(html) {\n  return html.replace(/<[^>]+>/g, \"\").replace(/\\s+/g, \" \").trim();\n}\nconst data = items[0].json;\nconst result = [];\nconst len = data.comment_author.length;\nfor (let i = 0; i < len; i++) {\n  result.push({ author: data.comment_author[i], content: stripHtml(data.comment_content[i]), likes: data.comment_likes[i], post_number: data.comment_post_number[i], time: data.comment_time[i] });\n}\nreturn [{ json: { comment: result } }];\n"
+      },
+      "id": "94d98142-0c39-43be-91fb-6117277588d8",
+      "name": "Comment Summary 2",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2464,
+        592
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "779cb50b-fd04-4b47-9e6b-d5af2441bf8c",
+      "name": "Merge Link Content",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        -1792,
+        432
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "37af1f5a-0df8-4dee-9e6c-a48819893cd5",
+      "name": "Merge Search Result",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        -1936,
+        -816
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { data: items.map(item => item.json) } }];\n"
+      },
+      "id": "4a109d34-4350-4793-ae84-1f0bca006358",
+      "name": "Wrap as Data Object",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -1408,
+        -256
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "523b7e7f-72d9-463d-9010-d84fe6fbed74",
+      "name": "Send reply",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -768,
+        -256
+      ],
+      "webhookId": "df228a87-ff01-4fcd-bad5-2dddf9dd6120",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "42189674-02df-4d18-b63c-c4b0f44c766d",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -4896,
+        -1088
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com/r/n8n/top.json?t=day&limit=20",
+        "options": {}
+      },
+      "id": "9591a903-8ae4-4475-9d6f-f1137e819f77",
+      "name": "Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -4672,
+        -1184
+      ],
+      "typeVersion": 4
+    },
+    {
+      "parameters": {
+        "url": "=https://community.n8n.io/search.json?q=%20after:{{ (new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)).toISOString().slice(0,10) }}%20min_posts%3A0%20in%3Afirst%2010%20order%3Alatest",
+        "options": {}
+      },
+      "id": "39fd896d-9b83-40d1-9ccf-e47a1aabaf47",
+      "name": "n8n Community Fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -4672,
+        -992
+      ],
+      "typeVersion": 4
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { \"n8n community search result\": items.map(item => item.json) } }];\n"
+      },
+      "id": "c021f7fc-f860-49b5-9ecf-b16e75f3afbd",
+      "name": "Get Only Search Result2",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -4448,
+        -992
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "chatId": "=YOUR_TELEGRAM_USER_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "227972da-d736-4c08-8032-6b2a5cc9e259",
+      "name": "Send Auto Reply",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3488,
+        -944
+      ],
+      "webhookId": "b29534da-a784-4e38-b0c6-5384f90a4fc7",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}"
+      },
+      "id": "31b4c4ac-a4e4-46b7-a168-f5b4121a4598",
+      "name": "Simple Memory3",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -3632,
+        608
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const MAX_LEN = 2000;\nlet text = ($input.first().json.output ?? $input.first().json.text ?? '').trim();\nif (!text) return [];\nconst allowed = new Set(['a','b','i','u','s','code','pre','blockquote']);\nconst escapeHtml = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nfunction sanitizeHref(href){ if (!href) return ''; const h = String(href).trim().replace(/^['\"]|['\"]$/g,''); const lower = h.toLowerCase(); if (lower.startsWith('javascript:') || lower.startsWith('data:')) return ''; return h; }\nfunction mdToHtml(md){ let s = md; s = s.replace(/```([\\s\\S]*?)```/g, (m,p1)=>`<pre>${escapeHtml(p1.trim())}</pre>`); s = s.replace(/`([^`]+)`/g, (m,p1)=>`<code>${escapeHtml(p1)}</code>`); s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<b>$1</b>'); s = s.replace(/(^|[\\s(])\\*([^*\\n]+)\\*(?=$|[\\s).,!?\\]])/g, '$1<i>$2</i>'); s = s.replace(/__([^_]+)__/g, '<u>$1</u>'); s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>'); s = s.replace(/^(#{1,6})\\s+(.+)$/gm, (m, hashes, content)=>`<b>${content.trim()}</b>\\n`); s = s.replace(/^[\\-\\*\\+]\\s+(.+)$/gm, '\u2022 $1'); s = s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (m,txt,url)=>{ const safe = sanitizeHref(url); return safe ? `<a href=\"${safe}\">${txt}</a>` : txt; }); return s; }\nfunction protectPreCodeBlocks(input){ const placeholders = []; let out = input; out = out.replace(/<pre\\b[^>]*>([\\s\\S]*?)<\\/pre>/gi, (m, inner)=>{ const token = `__PRE_BLOCK_${placeholders.length}__`; placeholders.push({token, tag:'pre', content: escapeHtml(inner)}); return token; }); out = out.replace(/<code\\b[^>]*>([\\s\\S]*?)<\\/code>/gi, (m, inner)=>{ const token = `__CODE_BLOCK_${placeholders.length}__`; placeholders.push({token, tag:'code', content: escapeHtml(inner)}); return token; }); const restore = (s)=>{ for (const ph of placeholders){ s = s.split(ph.token).join(`<${ph.tag}>${ph.content}</${ph.tag}>`); } return s; }; return { text: out, restore }; }\nfunction htmlNormalize(input){ let s = input; s = s.replace(/<br\\s*\\/?>/gi, '\\n'); s = s.replace(/<li[^>]*>/gi, '\u2022 ').replace(/<\\/li>/gi, '\\n'); s = s.replace(/<\\/?(ul|ol)[^>]*>/gi, ''); s = s.replace(/<p[^>]*>/gi, '').replace(/<\\/p>/gi, '\\n\\n'); s = s.replace(/<div[^>]*>/gi, '').replace(/<\\/div>/gi, '\\n'); s = s.replace(/<h[1-6][^>]*>([\\s\\S]*?)<\\/h[1-6]>/gi, (m, inner)=>`<b>${inner.trim()}</b>\\n`); s = s.replace(/<\\/?strong\\b/gi, t=>t.replace(/strong/i,'b')); s = s.replace(/<\\/?em\\b/gi, t=>t.replace(/em/i,'i')); s = s.replace(/<\\/?ins\\b/gi, t=>t.replace(/ins/i,'u')); s = s.replace(/<\\/?(strike|del)\\b/gi, t=>t.replace(/strike|del/i,'s')); s = s.replace(/<\\/?span[^>]*>/gi, ''); s = s.replace(/<img[^>]*src\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)[^>]*>/gi, (m,src)=>{ const clean = String(src).replace(/^['\"]|['\"]$/g,''); return ` (\u1ea3nh: ${clean}) `; }); return s; }\nfunction escapeLoneAngles(input){ return input.replace(/<(?!\\/?(a|b|i|u|s|code|pre|blockquote)\\b)/gi, '&lt;'); }\nfunction sanitizeHtml(input){ return input.replace(/<\\/?([a-z0-9]+)(\\s+[^>]*)?>/gi, (full, tag, attrs='')=>{ const t = tag.toLowerCase(); if (t === 'a'){ if (full.startsWith('</')) return '</a>'; const hrefMatch = attrs.match(/href\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)/i); const safeHref = hrefMatch ? sanitizeHref(hrefMatch[1]) : ''; return safeHref ? `<a href=\"${safeHref}\">` : ''; } if (!allowed.has(t)) return ''; return full[1] === '/' ? `</${t}>` : `<${t}>`; }); }\nfunction getOpenTagsWithAttrs(html){ const trackable = new Set(['a','pre','blockquote']); const stack = []; const re = /<\\/?([a-z0-9]+)(?:\\s+[^>]*)?>/gi; let m; while ((m = re.exec(html))){ const raw = m[0]; const t = m[1].toLowerCase(); if (!trackable.has(t)) continue; if (raw[1] === '/'){ const idx = [...stack].reverse().findIndex(e=>e.tag===t); if (idx !== -1) stack.splice(stack.length - 1 - idx, 1); } else { if (t === 'a'){ const hrefMatch = raw.match(/href\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)/i); const href = hrefMatch ? sanitizeHref(hrefMatch[1]) : ''; if (href) stack.push({tag:'a', href}); } else { stack.push({tag:t}); } } } return stack; }\nconst closeTags = (open)=>[...open].reverse().map(e=>`</${e.tag}>`).join(''); const openTagsStr = (open)=>open.map(e=>e.tag==='a'?`<a href=\"${e.href}\">`:`<${e.tag}>`).join('');\nfunction normalizeToTelegramHtml(input){ const looksLikeMd = /(^|\\s)[*_`~]|^#{1,6}\\s|```/.test(input); let s = looksLikeMd ? mdToHtml(input) : input; s = htmlNormalize(s); const protector = protectPreCodeBlocks(s); s = protector.text; s = escapeLoneAngles(s); s = sanitizeHtml(s); s = protector.restore(s); s = s.replace(/\\n{3,}/g, '\\n\\n').trim(); return s; }\nfunction splitHtmlSmart(html, maxLen){ const re = /(<a\\b[^>]*>[\\s\\S]*?<\\/a>)|(<pre\\b[^>]*>[\\s\\S]*?<\\/pre>)|(<blockquote\\b[^>]*>[\\s\\S]*?<\\/blockquote>)|(<b\\b[^>]*>[\\s\\S]*?<\\/b>)|(<i\\b[^>]*>[\\s\\S]*?<\\/i>)|(<u\\b[^>]*>[\\s\\S]*?<\\/u>)|(<s\\b[^>]*>[\\s\\S]*?<\\/s>)|(<code\\b[^>]*>[\\s\\S]*?<\\/code>)|(<[^>]+>)|([^<]+)/gi; const segments = []; let m; while ((m = re.exec(html))){ segments.push(m[1] || m[2] || m[3] || m[4] || m[5] || m[6] || m[7] || m[8] || m[9] || m[10]); } const chunks = []; let buffer = ''; let prefixOpen = ''; const pushBuffer = ()=>{ if (!buffer.trim()) { buffer = ''; return; } let out = prefixOpen + buffer; const open = getOpenTagsWithAttrs(out); out += closeTags(open); prefixOpen = openTagsStr(open); chunks.push(out.trim()); buffer = ''; }; const shrinkAnchorIfTooLong = (seg, room)=>{ const mm = /^<a\\b[^>]*>([\\s\\S]*?)<\\/a>$/i.exec(seg); if (!mm) return seg; const visible = mm[1]; if (seg.length <= room) return seg; const truncated = (visible.length > room - 30) ? (visible.slice(0, Math.max(3, room - 33)) + '...') : visible; return seg.replace(visible, truncated); }; const splitWrappedBlock = (segTag, seg, available)=>{ const rx = new RegExp(`^<${segTag}[^>]*>([\\\\s\\\\S]*)<\\\\/${segTag}>$`, 'i'); const mm = rx.exec(seg); if (!mm) return false; let content = mm[1]; const shellLen = (`<${segTag}></${segTag}>`).length; if (seg.length <= available) return false; if (buffer.trim()) pushBuffer(); while (content.length){ const room = Math.max(200, maxLen - prefixOpen.length - shellLen - 10); const slice = content.slice(0, room); buffer = `<${segTag}>${slice}</${segTag}>`; pushBuffer(); content = content.slice(slice.length); } return true; }; for (const seg of segments){ const segLen = seg.length; if ((prefixOpen.length + buffer.length + segLen) > maxLen){ if (/^<a\\b/i.test(seg)){ const room = maxLen - prefixOpen.length - buffer.length - 1; const shrunk = shrinkAnchorIfTooLong(seg, Math.max(60, room)); if ((prefixOpen.length + buffer.length + shrunk.length) <= maxLen){ buffer += shrunk; continue; } } const available = maxLen - prefixOpen.length - buffer.length; if (/^<pre\\b/i.test(seg) && splitWrappedBlock('pre', seg, available)) continue; if (/^<blockquote\\b/i.test(seg) && splitWrappedBlock('blockquote', seg, available)) continue; pushBuffer(); if ((prefixOpen.length + segLen) <= maxLen){ buffer = seg; } else if (!seg.startsWith('<')) { const words = seg.split(/(\\s+)/); for (const w of words){ const candidate = buffer + w; if ((prefixOpen.length + candidate.length) > maxLen){ pushBuffer(); if ((prefixOpen.length + w.length) > maxLen){ let s = w; const room = Math.max(200, maxLen - prefixOpen.length - 10); while (s.length){ buffer = s.slice(0, room); pushBuffer(); s = s.slice(room); } } else { buffer = w; } } else { buffer = candidate; } } } else { let start = 0; const room = Math.max(200, maxLen - prefixOpen.length - 10); while (start < segLen){ buffer = seg.slice(start, start + room); pushBuffer(); start += room; } } continue; } buffer += seg; } if (buffer.trim()) pushBuffer(); return chunks; }\nconst normalized = normalizeToTelegramHtml(text);\nconst chunks = splitHtmlSmart(normalized, MAX_LEN);\nreturn chunks.map(c => ({ json: { text: c } }));\n"
+      },
+      "id": "59fc38f2-89fc-4830-be62-170d8663d656",
+      "name": "Clean and Chunk2",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -4592,
+        384
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "reply_to_message_id": "={{ $('Telegram Trigger - User Message').item.json.message.message_id }}"
+        }
+      },
+      "id": "cd337f0e-d339-421b-9db8-6e4cb687e583",
+      "name": "Send reply1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -4224,
+        384
+      ],
+      "webhookId": "66e1b44f-c919-4020-97ca-9db75f8c074e",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=You are an AI Agent inside an n8n workflow, expert at identifying user intent for a bot that searches Reddit r/n8n and the n8n Community, opens links, or chats. Current time is {{ new Date().toISOString().slice(0,19) }}. Classify intent as search | open_link | chat (priority order). For search, infer keyword (concise English), reddit_sort (relevance|new|top|comments|hot, default hot), reddit_time (hour|day|week|month|year|all, default month), n8ncom_sort (views|latest|likes|latest_topic|votes, default views), n8ncom_time (after:YYYY-MM-DD, default 30 days ago), platforms (reddit|n8ncom|all, default all), limit (default 10), page (default 1). For open_link, fill link_url from chat history (never fabricate, never leave empty for this intent). Set language (ISO code) and confidence (0-1). Always output every field; use \"\" for missing strings. Output ONLY valid JSON matching: {\"intent\":\"\",\"keyword\":\"\",\"platforms\":\"\",\"reddit_sort\":\"\",\"reddit_time\":\"\",\"n8ncom_sort\":\"\",\"n8ncom_time\":\"\",\"limit\":0,\"page\":0,\"link_url\":\"\",\"language\":\"\",\"confidence\":0}"
+        }
+      },
+      "id": "7934dbec-84a7-47f5-917b-afbe413244cb",
+      "name": "Detect User Intent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -4528,
+        -240
+      ],
+      "retryOnFail": true,
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "f4942c18-c543-47c3-a726-fa8f708e5d0f",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.output.intent }}",
+                    "rightValue": "search"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3a053610-652c-4a96-8ed1-87ab66195be0",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.output.intent }}",
+                    "rightValue": "chat"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "9c27b4b8-2bab-4edc-89c0-4113604c18cc",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.output.intent }}",
+                    "rightValue": "open_link"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "933b4904-e9c5-44e7-91df-d1ad181f2456",
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    },
+                    "leftValue": "={{ $json.output.confidence }}",
+                    "rightValue": 0.7
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bdf1d6ec-fbb2-42ec-8f43-7ebc7532d83b",
+      "name": "Branch by Intent",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        -3584,
+        -272
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Trigger - User Message').item.json.message.text }}",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=You are Ken. When confidence < 0.7, ask ONE short clarifying question with 2-3 tap-to-choose options as a Telegram HTML string (tags: b,i,u,a,code,pre,blockquote,br). Use bullet \"\u2022 \" for options. Base your question on this intent data:\n{{ JSON.stringify($('Detect User Intent').item.json.output) }}\nAsk about keyword first if missing, then platform, then time/sort. Reply in the same language as the user. Output ONLY the HTML string, no JSON."
+        }
+      },
+      "id": "b8e028e6-6e0b-4b80-a830-0de0362c6b79",
+      "name": "AI Summarizer Clarify",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -3760,
+        400
+      ],
+      "retryOnFail": true,
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Trigger - User Message').item.json.message.text }}",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=You are Ken, assistant to the bot owner (\"bro\"). Craft a Telegram HTML reply (tags: b,i,u,a,code,pre,blockquote only) using ONLY this data, no invented facts:\n{{ JSON.stringify($('Wrap as Data Object').item.json.data) }}\nIf it's a list of results: summarize 3-6 notable items with links. If it's deep-dive content (post+comments): structured summary with author/time/key points. If missing data, say what's missing. First line bold heading, bullets with \"\u2022 \". Output ONLY the HTML string."
+        }
+      },
+      "id": "5315f81c-eb80-41d4-81b1-c899e48dc8bb",
+      "name": "AI Summarizer Deep-dive",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -1216,
+        -256
+      ],
+      "retryOnFail": true,
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "[Auto] Daily hottest posts digest",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=You are Ken. Summarize the day's hottest n8n/Reddit posts as a Telegram HTML reply (tags: b,i,u,a,code,pre,blockquote only) using ONLY this data:\n{{ JSON.stringify($('Wrap as Data Object2').item.json.data) }}\n3-6 items, each with a link, short summary, and date if known. First line bold heading, bullets with \"\u2022 \". Output ONLY the HTML string."
+        }
+      },
+      "id": "09f5f2fc-a1ec-4d14-a45a-6b683aefcecf",
+      "name": "AI Summarizer Overview",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -4048,
+        -944
+      ],
+      "retryOnFail": true,
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const MAX_LEN = 2000;\nlet text = ($input.first().json.output ?? $input.first().json.text ?? '').trim();\nif (!text) return [];\nconst allowed = new Set(['a','b','i','u','s','code','pre','blockquote']);\nconst escapeHtml = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nfunction sanitizeHref(href){ if (!href) return ''; const h = String(href).trim().replace(/^['\"]|['\"]$/g,''); const lower = h.toLowerCase(); if (lower.startsWith('javascript:') || lower.startsWith('data:')) return ''; return h; }\nfunction mdToHtml(md){ let s = md; s = s.replace(/```([\\s\\S]*?)```/g, (m,p1)=>`<pre>${escapeHtml(p1.trim())}</pre>`); s = s.replace(/`([^`]+)`/g, (m,p1)=>`<code>${escapeHtml(p1)}</code>`); s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<b>$1</b>'); s = s.replace(/(^|[\\s(])\\*([^*\\n]+)\\*(?=$|[\\s).,!?\\]])/g, '$1<i>$2</i>'); s = s.replace(/__([^_]+)__/g, '<u>$1</u>'); s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>'); s = s.replace(/^(#{1,6})\\s+(.+)$/gm, (m, hashes, content)=>`<b>${content.trim()}</b>\\n`); s = s.replace(/^[\\-\\*\\+]\\s+(.+)$/gm, '\u2022 $1'); s = s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (m,txt,url)=>{ const safe = sanitizeHref(url); return safe ? `<a href=\"${safe}\">${txt}</a>` : txt; }); return s; }\nfunction protectPreCodeBlocks(input){ const placeholders = []; let out = input; out = out.replace(/<pre\\b[^>]*>([\\s\\S]*?)<\\/pre>/gi, (m, inner)=>{ const token = `__PRE_BLOCK_${placeholders.length}__`; placeholders.push({token, tag:'pre', content: escapeHtml(inner)}); return token; }); out = out.replace(/<code\\b[^>]*>([\\s\\S]*?)<\\/code>/gi, (m, inner)=>{ const token = `__CODE_BLOCK_${placeholders.length}__`; placeholders.push({token, tag:'code', content: escapeHtml(inner)}); return token; }); const restore = (s)=>{ for (const ph of placeholders){ s = s.split(ph.token).join(`<${ph.tag}>${ph.content}</${ph.tag}>`); } return s; }; return { text: out, restore }; }\nfunction htmlNormalize(input){ let s = input; s = s.replace(/<br\\s*\\/?>/gi, '\\n'); s = s.replace(/<li[^>]*>/gi, '\u2022 ').replace(/<\\/li>/gi, '\\n'); s = s.replace(/<\\/?(ul|ol)[^>]*>/gi, ''); s = s.replace(/<p[^>]*>/gi, '').replace(/<\\/p>/gi, '\\n\\n'); s = s.replace(/<div[^>]*>/gi, '').replace(/<\\/div>/gi, '\\n'); s = s.replace(/<h[1-6][^>]*>([\\s\\S]*?)<\\/h[1-6]>/gi, (m, inner)=>`<b>${inner.trim()}</b>\\n`); s = s.replace(/<\\/?strong\\b/gi, t=>t.replace(/strong/i,'b')); s = s.replace(/<\\/?em\\b/gi, t=>t.replace(/em/i,'i')); s = s.replace(/<\\/?ins\\b/gi, t=>t.replace(/ins/i,'u')); s = s.replace(/<\\/?(strike|del)\\b/gi, t=>t.replace(/strike|del/i,'s')); s = s.replace(/<\\/?span[^>]*>/gi, ''); s = s.replace(/<img[^>]*src\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)[^>]*>/gi, (m,src)=>{ const clean = String(src).replace(/^['\"]|['\"]$/g,''); return ` (\u1ea3nh: ${clean}) `; }); return s; }\nfunction escapeLoneAngles(input){ return input.replace(/<(?!\\/?(a|b|i|u|s|code|pre|blockquote)\\b)/gi, '&lt;'); }\nfunction sanitizeHtml(input){ return input.replace(/<\\/?([a-z0-9]+)(\\s+[^>]*)?>/gi, (full, tag, attrs='')=>{ const t = tag.toLowerCase(); if (t === 'a'){ if (full.startsWith('</')) return '</a>'; const hrefMatch = attrs.match(/href\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)/i); const safeHref = hrefMatch ? sanitizeHref(hrefMatch[1]) : ''; return safeHref ? `<a href=\"${safeHref}\">` : ''; } if (!allowed.has(t)) return ''; return full[1] === '/' ? `</${t}>` : `<${t}>`; }); }\nfunction getOpenTagsWithAttrs(html){ const trackable = new Set(['a','pre','blockquote']); const stack = []; const re = /<\\/?([a-z0-9]+)(?:\\s+[^>]*)?>/gi; let m; while ((m = re.exec(html))){ const raw = m[0]; const t = m[1].toLowerCase(); if (!trackable.has(t)) continue; if (raw[1] === '/'){ const idx = [...stack].reverse().findIndex(e=>e.tag===t); if (idx !== -1) stack.splice(stack.length - 1 - idx, 1); } else { if (t === 'a'){ const hrefMatch = raw.match(/href\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)/i); const href = hrefMatch ? sanitizeHref(hrefMatch[1]) : ''; if (href) stack.push({tag:'a', href}); } else { stack.push({tag:t}); } } } return stack; }\nconst closeTags = (open)=>[...open].reverse().map(e=>`</${e.tag}>`).join(''); const openTagsStr = (open)=>open.map(e=>e.tag==='a'?`<a href=\"${e.href}\">`:`<${e.tag}>`).join('');\nfunction normalizeToTelegramHtml(input){ const looksLikeMd = /(^|\\s)[*_`~]|^#{1,6}\\s|```/.test(input); let s = looksLikeMd ? mdToHtml(input) : input; s = htmlNormalize(s); const protector = protectPreCodeBlocks(s); s = protector.text; s = escapeLoneAngles(s); s = sanitizeHtml(s); s = protector.restore(s); s = s.replace(/\\n{3,}/g, '\\n\\n').trim(); return s; }\nfunction splitHtmlSmart(html, maxLen){ const re = /(<a\\b[^>]*>[\\s\\S]*?<\\/a>)|(<pre\\b[^>]*>[\\s\\S]*?<\\/pre>)|(<blockquote\\b[^>]*>[\\s\\S]*?<\\/blockquote>)|(<b\\b[^>]*>[\\s\\S]*?<\\/b>)|(<i\\b[^>]*>[\\s\\S]*?<\\/i>)|(<u\\b[^>]*>[\\s\\S]*?<\\/u>)|(<s\\b[^>]*>[\\s\\S]*?<\\/s>)|(<code\\b[^>]*>[\\s\\S]*?<\\/code>)|(<[^>]+>)|([^<]+)/gi; const segments = []; let m; while ((m = re.exec(html))){ segments.push(m[1] || m[2] || m[3] || m[4] || m[5] || m[6] || m[7] || m[8] || m[9] || m[10]); } const chunks = []; let buffer = ''; let prefixOpen = ''; const pushBuffer = ()=>{ if (!buffer.trim()) { buffer = ''; return; } let out = prefixOpen + buffer; const open = getOpenTagsWithAttrs(out); out += closeTags(open); prefixOpen = openTagsStr(open); chunks.push(out.trim()); buffer = ''; }; const shrinkAnchorIfTooLong = (seg, room)=>{ const mm = /^<a\\b[^>]*>([\\s\\S]*?)<\\/a>$/i.exec(seg); if (!mm) return seg; const visible = mm[1]; if (seg.length <= room) return seg; const truncated = (visible.length > room - 30) ? (visible.slice(0, Math.max(3, room - 33)) + '...') : visible; return seg.replace(visible, truncated); }; const splitWrappedBlock = (segTag, seg, available)=>{ const rx = new RegExp(`^<${segTag}[^>]*>([\\\\s\\\\S]*)<\\\\/${segTag}>$`, 'i'); const mm = rx.exec(seg); if (!mm) return false; let content = mm[1]; const shellLen = (`<${segTag}></${segTag}>`).length; if (seg.length <= available) return false; if (buffer.trim()) pushBuffer(); while (content.length){ const room = Math.max(200, maxLen - prefixOpen.length - shellLen - 10); const slice = content.slice(0, room); buffer = `<${segTag}>${slice}</${segTag}>`; pushBuffer(); content = content.slice(slice.length); } return true; }; for (const seg of segments){ const segLen = seg.length; if ((prefixOpen.length + buffer.length + segLen) > maxLen){ if (/^<a\\b/i.test(seg)){ const room = maxLen - prefixOpen.length - buffer.length - 1; const shrunk = shrinkAnchorIfTooLong(seg, Math.max(60, room)); if ((prefixOpen.length + buffer.length + shrunk.length) <= maxLen){ buffer += shrunk; continue; } } const available = maxLen - prefixOpen.length - buffer.length; if (/^<pre\\b/i.test(seg) && splitWrappedBlock('pre', seg, available)) continue; if (/^<blockquote\\b/i.test(seg) && splitWrappedBlock('blockquote', seg, available)) continue; pushBuffer(); if ((prefixOpen.length + segLen) <= maxLen){ buffer = seg; } else if (!seg.startsWith('<')) { const words = seg.split(/(\\s+)/); for (const w of words){ const candidate = buffer + w; if ((prefixOpen.length + candidate.length) > maxLen){ pushBuffer(); if ((prefixOpen.length + w.length) > maxLen){ let s = w; const room = Math.max(200, maxLen - prefixOpen.length - 10); while (s.length){ buffer = s.slice(0, room); pushBuffer(); s = s.slice(room); } } else { buffer = w; } } else { buffer = candidate; } } } else { let start = 0; const room = Math.max(200, maxLen - prefixOpen.length - 10); while (start < segLen){ buffer = seg.slice(start, start + room); pushBuffer(); start += room; } } continue; } buffer += seg; } if (buffer.trim()) pushBuffer(); return chunks; }\nconst normalized = normalizeToTelegramHtml(text);\nconst chunks = splitHtmlSmart(normalized, MAX_LEN);\nreturn chunks.map(c => ({ json: { text: c } }));\n"
+      },
+      "id": "95c1089d-573f-4728-9459-126100d57a60",
+      "name": "Format for Telegram Output",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -928,
+        -256
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const MAX_LEN = 2000;\nlet text = ($input.first().json.output ?? $input.first().json.text ?? '').trim();\nif (!text) return [];\nconst allowed = new Set(['a','b','i','u','s','code','pre','blockquote']);\nconst escapeHtml = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nfunction sanitizeHref(href){ if (!href) return ''; const h = String(href).trim().replace(/^['\"]|['\"]$/g,''); const lower = h.toLowerCase(); if (lower.startsWith('javascript:') || lower.startsWith('data:')) return ''; return h; }\nfunction mdToHtml(md){ let s = md; s = s.replace(/```([\\s\\S]*?)```/g, (m,p1)=>`<pre>${escapeHtml(p1.trim())}</pre>`); s = s.replace(/`([^`]+)`/g, (m,p1)=>`<code>${escapeHtml(p1)}</code>`); s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<b>$1</b>'); s = s.replace(/(^|[\\s(])\\*([^*\\n]+)\\*(?=$|[\\s).,!?\\]])/g, '$1<i>$2</i>'); s = s.replace(/__([^_]+)__/g, '<u>$1</u>'); s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>'); s = s.replace(/^(#{1,6})\\s+(.+)$/gm, (m, hashes, content)=>`<b>${content.trim()}</b>\\n`); s = s.replace(/^[\\-\\*\\+]\\s+(.+)$/gm, '\u2022 $1'); s = s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (m,txt,url)=>{ const safe = sanitizeHref(url); return safe ? `<a href=\"${safe}\">${txt}</a>` : txt; }); return s; }\nfunction protectPreCodeBlocks(input){ const placeholders = []; let out = input; out = out.replace(/<pre\\b[^>]*>([\\s\\S]*?)<\\/pre>/gi, (m, inner)=>{ const token = `__PRE_BLOCK_${placeholders.length}__`; placeholders.push({token, tag:'pre', content: escapeHtml(inner)}); return token; }); out = out.replace(/<code\\b[^>]*>([\\s\\S]*?)<\\/code>/gi, (m, inner)=>{ const token = `__CODE_BLOCK_${placeholders.length}__`; placeholders.push({token, tag:'code', content: escapeHtml(inner)}); return token; }); const restore = (s)=>{ for (const ph of placeholders){ s = s.split(ph.token).join(`<${ph.tag}>${ph.content}</${ph.tag}>`); } return s; }; return { text: out, restore }; }\nfunction htmlNormalize(input){ let s = input; s = s.replace(/<br\\s*\\/?>/gi, '\\n'); s = s.replace(/<li[^>]*>/gi, '\u2022 ').replace(/<\\/li>/gi, '\\n'); s = s.replace(/<\\/?(ul|ol)[^>]*>/gi, ''); s = s.replace(/<p[^>]*>/gi, '').replace(/<\\/p>/gi, '\\n\\n'); s = s.replace(/<div[^>]*>/gi, '').replace(/<\\/div>/gi, '\\n'); s = s.replace(/<h[1-6][^>]*>([\\s\\S]*?)<\\/h[1-6]>/gi, (m, inner)=>`<b>${inner.trim()}</b>\\n`); s = s.replace(/<\\/?strong\\b/gi, t=>t.replace(/strong/i,'b')); s = s.replace(/<\\/?em\\b/gi, t=>t.replace(/em/i,'i')); s = s.replace(/<\\/?ins\\b/gi, t=>t.replace(/ins/i,'u')); s = s.replace(/<\\/?(strike|del)\\b/gi, t=>t.replace(/strike|del/i,'s')); s = s.replace(/<\\/?span[^>]*>/gi, ''); s = s.replace(/<img[^>]*src\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)[^>]*>/gi, (m,src)=>{ const clean = String(src).replace(/^['\"]|['\"]$/g,''); return ` (\u1ea3nh: ${clean}) `; }); return s; }\nfunction escapeLoneAngles(input){ return input.replace(/<(?!\\/?(a|b|i|u|s|code|pre|blockquote)\\b)/gi, '&lt;'); }\nfunction sanitizeHtml(input){ return input.replace(/<\\/?([a-z0-9]+)(\\s+[^>]*)?>/gi, (full, tag, attrs='')=>{ const t = tag.toLowerCase(); if (t === 'a'){ if (full.startsWith('</')) return '</a>'; const hrefMatch = attrs.match(/href\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)/i); const safeHref = hrefMatch ? sanitizeHref(hrefMatch[1]) : ''; return safeHref ? `<a href=\"${safeHref}\">` : ''; } if (!allowed.has(t)) return ''; return full[1] === '/' ? `</${t}>` : `<${t}>`; }); }\nfunction getOpenTagsWithAttrs(html){ const trackable = new Set(['a','pre','blockquote']); const stack = []; const re = /<\\/?([a-z0-9]+)(?:\\s+[^>]*)?>/gi; let m; while ((m = re.exec(html))){ const raw = m[0]; const t = m[1].toLowerCase(); if (!trackable.has(t)) continue; if (raw[1] === '/'){ const idx = [...stack].reverse().findIndex(e=>e.tag===t); if (idx !== -1) stack.splice(stack.length - 1 - idx, 1); } else { if (t === 'a'){ const hrefMatch = raw.match(/href\\s*=\\s*(\"[^\"]+\"|'[^']+'|[^\\s>]+)/i); const href = hrefMatch ? sanitizeHref(hrefMatch[1]) : ''; if (href) stack.push({tag:'a', href}); } else { stack.push({tag:t}); } } } return stack; }\nconst closeTags = (open)=>[...open].reverse().map(e=>`</${e.tag}>`).join(''); const openTagsStr = (open)=>open.map(e=>e.tag==='a'?`<a href=\"${e.href}\">`:`<${e.tag}>`).join('');\nfunction normalizeToTelegramHtml(input){ const looksLikeMd = /(^|\\s)[*_`~]|^#{1,6}\\s|```/.test(input); let s = looksLikeMd ? mdToHtml(input) : input; s = htmlNormalize(s); const protector = protectPreCodeBlocks(s); s = protector.text; s = escapeLoneAngles(s); s = sanitizeHtml(s); s = protector.restore(s); s = s.replace(/\\n{3,}/g, '\\n\\n').trim(); return s; }\nfunction splitHtmlSmart(html, maxLen){ const re = /(<a\\b[^>]*>[\\s\\S]*?<\\/a>)|(<pre\\b[^>]*>[\\s\\S]*?<\\/pre>)|(<blockquote\\b[^>]*>[\\s\\S]*?<\\/blockquote>)|(<b\\b[^>]*>[\\s\\S]*?<\\/b>)|(<i\\b[^>]*>[\\s\\S]*?<\\/i>)|(<u\\b[^>]*>[\\s\\S]*?<\\/u>)|(<s\\b[^>]*>[\\s\\S]*?<\\/s>)|(<code\\b[^>]*>[\\s\\S]*?<\\/code>)|(<[^>]+>)|([^<]+)/gi; const segments = []; let m; while ((m = re.exec(html))){ segments.push(m[1] || m[2] || m[3] || m[4] || m[5] || m[6] || m[7] || m[8] || m[9] || m[10]); } const chunks = []; let buffer = ''; let prefixOpen = ''; const pushBuffer = ()=>{ if (!buffer.trim()) { buffer = ''; return; } let out = prefixOpen + buffer; const open = getOpenTagsWithAttrs(out); out += closeTags(open); prefixOpen = openTagsStr(open); chunks.push(out.trim()); buffer = ''; }; const shrinkAnchorIfTooLong = (seg, room)=>{ const mm = /^<a\\b[^>]*>([\\s\\S]*?)<\\/a>$/i.exec(seg); if (!mm) return seg; const visible = mm[1]; if (seg.length <= room) return seg; const truncated = (visible.length > room - 30) ? (visible.slice(0, Math.max(3, room - 33)) + '...') : visible; return seg.replace(visible, truncated); }; const splitWrappedBlock = (segTag, seg, available)=>{ const rx = new RegExp(`^<${segTag}[^>]*>([\\\\s\\\\S]*)<\\\\/${segTag}>$`, 'i'); const mm = rx.exec(seg); if (!mm) return false; let content = mm[1]; const shellLen = (`<${segTag}></${segTag}>`).length; if (seg.length <= available) return false; if (buffer.trim()) pushBuffer(); while (content.length){ const room = Math.max(200, maxLen - prefixOpen.length - shellLen - 10); const slice = content.slice(0, room); buffer = `<${segTag}>${slice}</${segTag}>`; pushBuffer(); content = content.slice(slice.length); } return true; }; for (const seg of segments){ const segLen = seg.length; if ((prefixOpen.length + buffer.length + segLen) > maxLen){ if (/^<a\\b/i.test(seg)){ const room = maxLen - prefixOpen.length - buffer.length - 1; const shrunk = shrinkAnchorIfTooLong(seg, Math.max(60, room)); if ((prefixOpen.length + buffer.length + shrunk.length) <= maxLen){ buffer += shrunk; continue; } } const available = maxLen - prefixOpen.length - buffer.length; if (/^<pre\\b/i.test(seg) && splitWrappedBlock('pre', seg, available)) continue; if (/^<blockquote\\b/i.test(seg) && splitWrappedBlock('blockquote', seg, available)) continue; pushBuffer(); if ((prefixOpen.length + segLen) <= maxLen){ buffer = seg; } else if (!seg.startsWith('<')) { const words = seg.split(/(\\s+)/); for (const w of words){ const candidate = buffer + w; if ((prefixOpen.length + candidate.length) > maxLen){ pushBuffer(); if ((prefixOpen.length + w.length) > maxLen){ let s = w; const room = Math.max(200, maxLen - prefixOpen.length - 10); while (s.length){ buffer = s.slice(0, room); pushBuffer(); s = s.slice(room); } } else { buffer = w; } } else { buffer = candidate; } } } else { let start = 0; const room = Math.max(200, maxLen - prefixOpen.length - 10); while (start < segLen){ buffer = seg.slice(start, start + room); pushBuffer(); start += room; } } continue; } buffer += seg; } if (buffer.trim()) pushBuffer(); return chunks; }\nconst normalized = normalizeToTelegramHtml(text);\nconst chunks = splitHtmlSmart(normalized, MAX_LEN);\nreturn chunks.map(c => ({ json: { text: c } }));\n"
+      },
+      "id": "7e9cff6c-0a6c-47c9-9993-c35153a4ed60",
+      "name": "Clean and Chunk",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -3680,
+        -944
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "sendChatAction",
+        "chatId": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}"
+      },
+      "id": "2ca2aa77-8aac-4b10-90ef-c50f761dd815",
+      "name": "Send Typing Action",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3824,
+        -352
+      ],
+      "webhookId": "1a4e193f-797d-4fc1-864c-39696f402c67",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { data: items.map(item => item.json) } }];\n"
+      },
+      "id": "d5f62000-a125-4c1e-9cfe-62dc9da93d22",
+      "name": "Wrap as Data Object2",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -4016,
+        -1168
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a4d9d186-0b7e-4e65-aecf-91f400e826d8",
+              "name": "MyTelegramID",
+              "type": "number",
+              "value": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "55e22c80-a20f-42a9-9269-a2e3c43a51d0",
+      "name": "Set Memory ID Session",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -3808,
+        -1168
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}",
+        "text": "=<i>\u0110ang t\u00ecm ki\u1ebfm tr\u00ean: {{ $json.output.platforms }} \n- Keyword: <b>{{ $json.output.keyword }}</b>\n- Redit: {{ $json.output.reddit_sort }}, {{ $json.output.reddit_time }}\n- n8n Community: {{ $json.output.n8ncom_sort }}, {{ $json.output.n8ncom_time }} </i>",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "7f388361-c84e-48ee-889d-5b0b95c1cfff",
+      "name": "Send a text message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3024,
+        -1152
+      ],
+      "webhookId": "90d574ef-d1b6-430b-a5a3-137421f2a6a9",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - User Message').item.json.message.from.id }}",
+        "text": "=<i>\u0110ang truy c\u1eadp v\u00e0o {{ $json.output.link_url }} \u0111\u1ec3 \u0111\u1ecdc d\u1eef li\u1ec7u</i>",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "bb7c34cf-c316-4b0a-9127-77cf1f9783c8",
+      "name": "Send a text message1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3136,
+        288
+      ],
+      "webhookId": "d159421b-147e-46ee-a0c6-4c8077aadd90",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "5343abec-1bfa-45bf-9dc0-96bee2668e3e",
+      "name": "Google Gemini Chat Model jaynguyena01",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        -1376,
+        96
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CRED_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "id": "036fa9e2-83c5-487a-aac8-f85e3b56b834",
+      "name": "Groq Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "position": [
+        -1232,
+        144
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "groqApi": {
+          "id": "YOUR_GROQ_CRED_ID",
+          "name": "Groq Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "id": "28c025a9-2eda-40a9-93dd-d74d01e2652f",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "position": [
+        -4592,
+        -16
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "groqApi": {
+          "id": "YOUR_GROQ_CRED_ID",
+          "name": "Groq Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "name": "Telegram Trigger - User Message",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "position": [
+        -4896,
+        -256
+      ],
+      "typeVersion": 1.1,
+      "webhookId": "a1b2c3d4-0000-4000-8000-100000000001",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## SETUP CHECKLIST\n1. Reconnect Telegram, Google Gemini, Groq credentials on every node showing a placeholder (YOUR_..._CRED_ID).\n2. Set your own Telegram numeric user ID in: 'Send Auto Reply' (chatId) and 'Set Memory ID Session' (MyTelegramID value) \u2014 used only for the 8am daily digest.\n3. MongoDB nodes were replaced with free built-in Simple Memory (no DB needed).\n4. Activate workflow.",
+        "height": 260,
+        "width": 420,
+        "color": 3
+      },
+      "id": "setup-checklist-note",
+      "name": "Setup Checklist",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4928,
+        -800
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Detect User Intent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Detect User Intent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Reddit?": {
+      "main": [
+        [
+          {
+            "node": "Get Post Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comment": {
+      "main": [
+        [
+          {
+            "node": "Get Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Post Content": {
+      "main": [
+        [
+          {
+            "node": "Comment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Link Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Comment": {
+      "main": [
+        [
+          {
+            "node": "Comment Summary 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If n8n Community?": {
+      "main": [
+        [
+          {
+            "node": "Get Topic Content",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Comment1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Topic Content": {
+      "main": [
+        [
+          {
+            "node": "Merge Link Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Comment1": {
+      "main": [
+        [
+          {
+            "node": "Comment Summary 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Platform?": {
+      "main": [
+        [
+          {
+            "node": "n8n Community Fetch JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has keyword?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has keyword?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "n8n Community Fetch JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Summarizer Deep-dive",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Sources1": {
+      "main": [
+        [
+          {
+            "node": "Wrap as Data Object2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Only Search Result1": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Summarizer Overview",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Summarizer Overview",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Detect User Intent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Summarizer Clarify",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has keyword?": {
+      "main": [
+        [
+          {
+            "node": "Reddit Search page JSON (no keyword)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has time?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has time?": {
+      "main": [
+        [
+          {
+            "node": "Reddit Search page JSON (has time)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reddit Search page (no time)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit Search page JSON (has time)": {
+      "main": [
+        [
+          {
+            "node": "Get Only Reddit Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit Search page (no time)": {
+      "main": [
+        [
+          {
+            "node": "Get Only Reddit Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit Search page JSON (no keyword)": {
+      "main": [
+        [
+          {
+            "node": "Get Only Reddit Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Only Reddit Search Result": {
+      "main": [
+        [
+          {
+            "node": "Merge Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n Community Fetch JSON": {
+      "main": [
+        [
+          {
+            "node": "Get Only n8n community Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Only n8n community Search Result": {
+      "main": [
+        [
+          {
+            "node": "Merge Search Result",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Open link Reddit or n8n Comunity?": {
+      "main": [
+        [
+          {
+            "node": "If Reddit?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If n8n Community?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comment Summary 1": {
+      "main": [
+        [
+          {
+            "node": "Merge Link Content",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Comment Summary 2": {
+      "main": [
+        [
+          {
+            "node": "Merge Link Content",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Link Content": {
+      "main": [
+        [
+          {
+            "node": "Wrap as Data Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Search Result": {
+      "main": [
+        [
+          {
+            "node": "Wrap as Data Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap as Data Object": {
+      "main": [
+        [
+          {
+            "node": "AI Summarizer Deep-dive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "n8n Community Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit": {
+      "main": [
+        [
+          {
+            "node": "Get Only Search Result1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n Community Fetch": {
+      "main": [
+        [
+          {
+            "node": "Get Only Search Result2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Only Search Result2": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Simple Memory3": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Summarizer Clarify",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean and Chunk2": {
+      "main": [
+        [
+          {
+            "node": "Send reply1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect User Intent": {
+      "main": [
+        [
+          {
+            "node": "Branch by Intent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Typing Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branch by Intent": {
+      "main": [
+        [
+          {
+            "node": "Platform?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wrap as Data Object",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Open link Reddit or n8n Comunity?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Summarizer Clarify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Summarizer Clarify": {
+      "main": [
+        [
+          {
+            "node": "Clean and Chunk2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Summarizer Deep-dive": {
+      "main": [
+        [
+          {
+            "node": "Format for Telegram Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Summarizer Overview": {
+      "main": [
+        [
+          {
+            "node": "Clean and Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Telegram Output": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean and Chunk": {
+      "main": [
+        [
+          {
+            "node": "Send Auto Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap as Data Object2": {
+      "main": [
+        [
+          {
+            "node": "Set Memory ID Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Memory ID Session": {
+      "main": [
+        [
+          {
+            "node": "AI Summarizer Overview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model jaynguyena01": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Summarizer Deep-dive",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Summarizer Deep-dive",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Detect User Intent",
+            "type": "ai_languageModel",
+            "index": 1
+          },
+          {
+            "node": "AI Summarizer Overview",
+            "type": "ai_languageModel",
+            "index": 1
+          },
+          {
+            "node": "AI Summarizer Clarify",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger - User Message": {
+      "main": [
+        [
+          {
+            "node": "Detect User Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "5111b149a4b0f276638fef42ea1665d6c97656e35dbb3b347224eccd37984c92"
+  },
+  "tags": [],
+  "name": "n8n Technical Support & Forum AI Bot"
+}

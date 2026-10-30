@@ -1,0 +1,271 @@
+{
+  "name": "WhatsApp AI Customer Support Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "whatsapp-messages",
+        "options": {}
+      },
+      "id": "w13-webhook",
+      "name": "WhatsApp Cloud Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        112,
+        304
+      ],
+      "webhookId": "d0bda196-055b-4852-9687-1b5cc3c3c68c"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = items[0].json.body;\nconst entry = body.entry?.[0];\nconst changes = entry?.changes?.[0];\nconst value = changes?.value;\nconst message = value?.messages?.[0];\nconst contact = value?.contacts?.[0];\n\nreturn [{\n  json: {\n    senderPhone: message?.from || 'unknown',\n    senderName: contact?.profile?.name || 'Customer',\n    messageText: message?.text?.body || '',\n    messageId: message?.id || ''\n  }\n}];\n"
+      },
+      "id": "w13-code",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "AIzaSyMockKeyForGeminiValidation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={\n  \"parts\": [\n    {\n      \"text\": \"You are a friendly customer support AI. Draft a polite, helpful reply to this customer message: \" + ($json.messageText || 'Hello')\n    }\n  ]\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w13-llm",
+      "name": "Gemini: Draft Support Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        512,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst text = items[0].json.candidates?.[0]?.content?.parts?.[0]?.text || \"Thank you for contacting us. We will get back to you shortly!\";\nreturn [{ json: { reply: text } }];\n"
+      },
+      "id": "w13-clean",
+      "name": "Clean LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/mock-phone-number-id/messages",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messaging_product",
+              "value": "whatsapp"
+            },
+            {
+              "name": "to",
+              "value": "={{ $node[\"Extract Message Data\"].json[\"senderPhone\"] }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={\n  \"body\": $json.reply\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w13-send",
+      "name": "Send WhatsApp Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        912,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "w13-respond",
+      "name": "Respond with 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        304,
+        160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w13-manual",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        112,
+        160
+      ]
+    }
+  ],
+  "pinData": {
+    "Extract Message Data": [
+      {
+        "json": {
+          "senderPhone": "+15550100",
+          "senderName": "Jane Cooper",
+          "messageText": "What are your business hours?",
+          "messageId": "msg_abc123"
+        }
+      }
+    ],
+    "Gemini: Draft Support Reply": [
+      {
+        "json": {
+          "candidates": [
+            {
+              "content": {
+                "parts": [
+                  {
+                    "text": "Hello Jane! Our business hours are Monday to Friday, 9 AM to 5 PM."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "Clean LLM Response": [
+      {
+        "json": {
+          "reply": "Hello Jane! Our business hours are Monday to Friday, 9 AM to 5 PM."
+        }
+      }
+    ],
+    "Send WhatsApp Message": [
+      {
+        "json": {
+          "messaging_product": "whatsapp",
+          "contacts": [
+            {
+              "input": "+15550100",
+              "wa_id": "15550100"
+            }
+          ],
+          "messages": [
+            {
+              "id": "wamid.HBgLMTU1NTAxMDA="
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Cloud Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond with 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft Support Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft Support Reply": {
+      "main": [
+        [
+          {
+            "node": "Clean LLM Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean LLM Response": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c89c7542-c19c-427d-b143-78a0a3080298",
+  "meta": {
+    "instanceId": "5111b149a4b0f276638fef42ea1665d6c97656e35dbb3b347224eccd37984c92"
+  },
+  "nodeGroups": [],
+  "id": "aP8JALmU1VJOOwm9",
+  "tags": []
+}

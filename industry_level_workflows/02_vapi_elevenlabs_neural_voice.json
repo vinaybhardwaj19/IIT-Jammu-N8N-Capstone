@@ -1,0 +1,218 @@
+{
+  "name": "vapi + elevenlabs",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "vapi-elevenlabs-voice",
+        "options": {}
+      },
+      "id": "w12-webhook",
+      "name": "Voice Gen Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        112,
+        304
+      ],
+      "webhookId": "5c6b9414-ab4a-4134-bdc6-91d4783c358d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.body.text || 'Welcome to Vapi Voice service powered by ElevenLabs.' }}"
+            },
+            {
+              "name": "model_id",
+              "value": "eleven_monolingual_v1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w12-tts",
+      "name": "ElevenLabs TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        304,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://file.io",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w12-upload",
+      "name": "Upload to Audio Host",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        512,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.vapi.ai/assistant/{{ $json.body.assistantId || 'mock-id' }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "voice",
+              "value": "={\n  \"provider\": \"elevenlabs\",\n  \"voiceId\": \"21m00Tcm4TlvDq8ikWAM\",\n  \"stability\": 0.75,\n  \"similarityBoost\": 0.85\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w12-vapi-update",
+      "name": "Update Vapi Assistant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        704,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "w12-respond",
+      "name": "Respond with Voice URL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        912,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w12-manual",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        112,
+        160
+      ]
+    }
+  ],
+  "pinData": {
+    "ElevenLabs TTS": [
+      {
+        "json": {
+          "data": "audio_binary_mock"
+        }
+      }
+    ],
+    "Upload to Audio Host": [
+      {
+        "json": {
+          "success": true,
+          "link": "https://file.io/mock_audio.mp3"
+        }
+      }
+    ],
+    "Update Vapi Assistant": [
+      {
+        "json": {
+          "id": "vapi_assistant_mock_123",
+          "voice": {
+            "provider": "elevenlabs"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Gen Webhook": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs TTS": {
+      "main": [
+        [
+          {
+            "node": "Upload to Audio Host",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Audio Host": {
+      "main": [
+        [
+          {
+            "node": "Update Vapi Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Vapi Assistant": {
+      "main": [
+        [
+          {
+            "node": "Respond with Voice URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "eb65f994-aa0e-41a3-84c3-77431a279233",
+  "meta": {
+    "instanceId": "5111b149a4b0f276638fef42ea1665d6c97656e35dbb3b347224eccd37984c92"
+  },
+  "nodeGroups": [],
+  "id": "FvqHfSlOCQI7w9ra",
+  "tags": []
+}
