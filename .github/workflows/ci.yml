@@ -36,3 +36,4 @@ jobs:
       - name: Run Full Pytest Suite
         run: |
           pytest tests/ -v
+

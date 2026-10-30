@@ -152,6 +152,7 @@ def start_gradio(port: int = 7860, share: bool = False):
     
     from gradio_app import build_gradio_app, THEME, CSS
     app = build_gradio_app()
+    app.queue(default_concurrency_limit=20, max_size=2000)
     app.launch(
         server_name="0.0.0.0",
         server_port=port,

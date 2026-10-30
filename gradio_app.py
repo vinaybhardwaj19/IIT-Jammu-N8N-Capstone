@@ -2077,6 +2077,7 @@ if __name__ == "__main__":
     share = "--share" in sys.argv or "--public" in sys.argv or os.environ.get("GRADIO_SHARE", "").lower() == "true"
     print(f"   URL         : http://localhost:7860 {'(🌍 Public Link Enabled)' if share else ''}")
     app = build_gradio_app()
+    app.queue(default_concurrency_limit=20, max_size=2000)
     app.launch(
         server_name="0.0.0.0",
         server_port=7860,
