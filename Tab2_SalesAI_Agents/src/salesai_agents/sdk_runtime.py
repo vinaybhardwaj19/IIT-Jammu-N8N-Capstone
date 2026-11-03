@@ -15,6 +15,12 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 try:
     from agents import Agent, Runner, function_tool
+    try:
+        from agents.tool import FunctionTool
+        if "__call__" not in FunctionTool.__dict__:
+            FunctionTool.__call__ = lambda self, *args, **kwargs: getattr(self, "__wrapped__", lambda *a, **k: None)(*args, **kwargs)
+    except Exception:
+        pass
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
