@@ -52,11 +52,14 @@ from salesai_agents.email_writer_agent import EmailWriterAgent
 from salesai_agents.objection_crm_agents import ObjectionHandlerAgent
 from salesai_agents.crm_manager_agent import CRMManagerAgent
 from salesai_agents.meeting_coordinator_agent import MeetingCoordinatorAgent
+from salesai_agents.deal_health_agent import DealHealthAgent
+from tools.knowledge_rag import query_battlecard, get_roi_summary, search_sales_knowledge, BATTLECARDS
 from tools.crm_database import (
     get_all_leads, get_pipeline_stats, upsert_lead, get_lead,
     update_lead_stage, init_database, log_activity, get_activities
 )
 from tools.email_sender import send_cold_email, simulate_email_send, get_smtp_status
+from workflow_node_engine import run_node_pipeline
 
 init_database()
 
@@ -90,6 +93,7 @@ def agents():
             "objection": ObjectionHandlerAgent(),
             "crm":       CRMManagerAgent(),
             "meeting":   MeetingCoordinatorAgent(),
+            "health":    DealHealthAgent(),
         }
     return _agents
 
@@ -179,8 +183,11 @@ class StageUpdateRequest(BaseModel):
     score: Optional[int] = None
 
 class N8NWebhookPayload(BaseModel):
-    action: str
+    model_config = {"extra": "allow"}
+    action: str = "WF-01"
+    workflow_id: Optional[str] = None
     data: Dict[str, Any] = {}
+    lead: Optional[Dict[str, Any]] = None
     source: str = "n8n"
 
 class ObjectionRequest(BaseModel):
@@ -533,6 +540,32 @@ def pipeline_report():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/deal-health")
+def get_pipeline_deal_health():
+    """Autonomous RevOps pipeline audit and deal-slippage assessment."""
+    try:
+        return agents()["health"].run_pipeline_audit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/battlecards")
+def list_battlecards():
+    """Get all competitor battlecards and competitive differentiators."""
+    return {"competitors": list(BATTLECARDS.keys()), "battlecards": BATTLECARDS}
+
+@app.get("/api/battlecards/{competitor}")
+def get_battlecard_endpoint(competitor: str):
+    """Get specific competitor battlecard."""
+    card = query_battlecard(competitor)
+    if not card:
+        raise HTTPException(status_code=404, detail=f"No battlecard found for '{competitor}'. Available: {list(BATTLECARDS.keys())}")
+    return card
+
+@app.get("/api/roi-calculator")
+def get_roi_calculator(team_size: int = 5, current_crm: str = "HubSpot"):
+    """Get customized ROI metrics and projected annual savings."""
+    return get_roi_summary(team_size=team_size, current_crm=current_crm)
+
 @app.get("/api/pipeline/forecast")
 def revenue_forecast():
     """Get revenue forecast."""
@@ -558,14 +591,52 @@ async def n8n_webhook(payload: N8NWebhookPayload, background_tasks: BackgroundTa
         add_lead    — Add lead to CRM
         update_stage — Update lead stage
     """
-    action = payload.action
-    data = payload.data
+    action = payload.workflow_id or payload.action or "WF-01"
+    data = payload.data or payload.lead or {}
+    if not data:
+        # Pull extra attributes sent in root of JSON
+        extra_fields = {k: v for k, v in payload.__dict__.items() if k not in ("action", "workflow_id", "data", "lead", "source")}
+        if extra_fields:
+            data = extra_fields
 
     try:
+        # Check if this is a direct workflow execution request (WF-01 to WF-06)
+        wf_target = None
+        act_upper = action.upper().strip()
+        if act_upper in ["WF-01", "WF-02", "WF-03", "WF-04", "WF-05", "WF-06"]:
+            wf_target = act_upper
+        elif "capture" in action.lower():
+            wf_target = "WF-01"
+        elif "proposal" in action.lower():
+            wf_target = "WF-05"
+        elif "dashboard" in action.lower() or "analytics" in action.lower():
+            wf_target = "WF-06"
+
+        if wf_target:
+            node_res = run_node_pipeline(wf_target, data, is_live_webhook=True, send_live_smtp=True)
+            return {
+                "status": "processed",
+                "workflow": wf_target,
+                "action": action,
+                "nodes_executed": node_res["total_nodes"],
+                "summary": node_res["summary"],
+                "telemetry": json.loads(node_res["telemetry_json"])
+            }
+
         if action == "research":
             result = agents()["research"].run(data)
         elif action == "qualify":
-            result = agents()["qualify"].run({"lead": data, "intelligence": data.get("intelligence", {})})
+            lead_info = data.get("lead", data)
+            result = agents()["qualify"].run({"lead": lead_info, "intelligence": data.get("intelligence", {})})
+            if lead_info.get("email") or lead_info.get("full_name"):
+                lead_id = upsert_lead(lead_info)
+                score = result.get("score") or result.get("composite_score") or 82
+                update_lead_stage(lead_id, stage="Qualified" if score >= 60 else "New Lead", score=score)
+                log_activity(lead_id, "bant_scored", f"BANT Qualification via N8N Webhook: {score}/100", "qualified" if score >= 60 else "nurture", "N8N Webhook Bridge")
+                result["lead_id"] = lead_id
+                result["score"] = score
+                result["pipeline_stage"] = "Qualified" if score >= 60 else "New Lead"
+                result["assigned_rep"] = "Sarah Jenkins (Senior AE)" if score >= 70 else "Marcus Cole (SDR)"
         elif action == "email":
             result = agents()["email"].run({
                 "lead": data, "intelligence": data.get("intelligence", {}),
@@ -575,10 +646,11 @@ async def n8n_webhook(payload: N8NWebhookPayload, background_tasks: BackgroundTa
                 "sender_title": data.get("sender_title", "Account Executive, SalesFlow CRM")
             })
         elif action == "pipeline":
-            # Full pipeline via webhook
             result = {"message": "Use POST /api/pipeline/full for full pipeline", "status": "redirect"}
         elif action == "add_lead":
-            lead_id = upsert_lead(data)
+            lead_info = data.get("lead", data)
+            lead_id = upsert_lead(lead_info)
+            log_activity(lead_id, "lead_created", f"Lead {lead_info.get('full_name')} registered via Webhook", "success", "N8N Webhook Bridge")
             result = {"status": "success", "lead_id": lead_id, "action": "lead_added"}
         elif action == "update_stage":
             success = update_lead_stage(data.get("lead_id"), data.get("stage"), data.get("temperature"), data.get("score"))

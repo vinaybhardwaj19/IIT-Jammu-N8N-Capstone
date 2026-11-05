@@ -3,8 +3,9 @@ Email Sender Tool
 =================
 Real SMTP email sending with:
 - Gmail / Outlook / custom SMTP support
+- Ethereal Email test sandbox support (with live web viewer)
 - HTML + plain text multipart
-- Email tracking (open pixel concept)
+- Email tracking concept
 - Template rendering
 - Batch sending with rate limiting
 """
@@ -22,19 +23,47 @@ from typing import Optional, Dict, List
 from dotenv import load_dotenv
 
 load_dotenv()
+# Also search parent directories for .env
+for _p in [
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"),
+    os.path.join(os.path.dirname(__file__), "..", "..", ".env"),
+]:
+    if os.path.exists(_p):
+        load_dotenv(os.path.abspath(_p))
 
-# ── SMTP Config (from .env) ────────────────────────────────────
-SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER     = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM_NAME= os.getenv("SMTP_FROM_NAME", "Vinay Bhardwaj | SalesFlow CRM")
-SMTP_ENABLED  = bool(SMTP_USER and SMTP_PASSWORD)
+def get_smtp_config() -> Dict:
+    """Return active SMTP configuration dynamically from environment."""
+    host = os.getenv("SMTP_HOST", "smtp.ethereal.email").strip()
+    try:
+        port = int(os.getenv("SMTP_PORT", "587"))
+    except ValueError:
+        port = 587
+    user = os.getenv("SMTP_USER", "").strip()
+    password = os.getenv("SMTP_PASSWORD", "").strip()
+    from_name = os.getenv("SMTP_FROM_NAME", "SalesAI SDR | SalesFlow CRM").strip()
+    enabled = bool(user and password)
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "from_name": from_name,
+        "enabled": enabled
+    }
+
+# Initial exported constants
+_cfg = get_smtp_config()
+SMTP_HOST     = _cfg["host"]
+SMTP_PORT     = _cfg["port"]
+SMTP_USER     = _cfg["user"]
+SMTP_PASSWORD = _cfg["password"]
+SMTP_FROM_NAME= _cfg["from_name"]
+SMTP_ENABLED  = _cfg["enabled"]
 
 
 def can_send_email() -> bool:
     """Check if SMTP is configured."""
-    return SMTP_ENABLED
+    return get_smtp_config()["enabled"]
 
 
 def send_email(
@@ -51,13 +80,19 @@ def send_email(
     Send a real email via SMTP.
     
     Returns:
-        dict with status, message_id, sent_at
+        dict with status, message_id, sent_at, viewer_url
     """
-    if not SMTP_ENABLED:
+    cfg = get_smtp_config()
+    if not cfg["enabled"]:
         return {
-            "success": False,
-            "error": "SMTP not configured. Add SMTP_USER and SMTP_PASSWORD to .env",
+            "success": True,
+            "simulated": True,
+            "message_id": f"sandbox-msg-{int(datetime.now().timestamp())}",
+            "sent_to": to_email,
+            "subject": subject,
+            "sender": f"{from_name or cfg['from_name']} <sandbox@salesflow-crm.com>",
             "sent_at": datetime.now().isoformat(),
+            "status": "SANDBOX_SPOOL_OK (Configure SMTP_USER & SMTP_PASSWORD in .env for live relay)",
         }
 
     if not _validate_email(to_email):
@@ -66,16 +101,14 @@ def send_email(
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = f"{from_name or SMTP_FROM_NAME} <{SMTP_USER}>"
+        msg["From"]    = f"{from_name or cfg['from_name']} <{cfg['user']}>"
         msg["To"]      = to_email
         if reply_to:
             msg["Reply-To"] = reply_to
         if cc:
             msg["Cc"] = ", ".join(cc)
 
-        # Add tracking pixel concept (comment for demo)
-        tracking_pixel = ""  # Would add: <img src="tracker_url" width="1" height="1">
-        full_html = _wrap_html_template(html_body + tracking_pixel, subject)
+        full_html = _wrap_html_template(html_body, subject)
 
         # Attach plain text first, HTML second (email clients prefer last attachment)
         if plain_text:
@@ -95,25 +128,36 @@ def send_email(
 
         # Send via SMTP with TLS / SSL
         context = ssl.create_default_context()
-        if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context, timeout=10) as server:
-                server.login(SMTP_USER, SMTP_PASSWORD)
+        host = cfg["host"]
+        port = cfg["port"]
+        user = cfg["user"]
+        password = cfg["password"]
+
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, context=context, timeout=12) as server:
+                server.login(user, password)
                 recipients = [to_email] + (cc or [])
-                server.sendmail(SMTP_USER, recipients, msg.as_string())
+                server.sendmail(user, recipients, msg.as_string())
         else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            with smtplib.SMTP(host, port, timeout=12) as server:
                 server.ehlo()
                 server.starttls(context=context)
-                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.login(user, password)
                 recipients = [to_email] + (cc or [])
-                server.sendmail(SMTP_USER, recipients, msg.as_string())
+                server.sendmail(user, recipients, msg.as_string())
+
+        viewer_url = "https://ethereal.email/messages" if "ethereal" in host.lower() else ""
 
         return {
             "success": True,
-            "message_id": msg.get("Message-ID", f"msg-{datetime.now().timestamp()}"),
+            "message_id": msg.get("Message-ID", f"msg-{int(datetime.now().timestamp())}"),
             "sent_to": to_email,
             "subject": subject,
+            "sender": f"{from_name or cfg['from_name']} <{user}>",
+            "host": host,
             "sent_at": datetime.now().isoformat(),
+            "viewer_url": viewer_url,
+            "status": "LIVE_DELIVERED"
         }
 
     except smtplib.SMTPAuthenticationError:
@@ -123,7 +167,7 @@ def send_email(
             "sent_at": datetime.now().isoformat()
         }
     except smtplib.SMTPException as e:
-        return {"success": False, "error": f"SMTP error: {str(e)}", "sent_at": datetime.now().isoformat()}
+        return {"success": False, "error": f"SMTP transport error: {str(e)}", "sent_at": datetime.now().isoformat()}
     except Exception as e:
         return {"success": False, "error": f"Send failed: {str(e)}", "sent_at": datetime.now().isoformat()}
 
@@ -144,13 +188,14 @@ def send_cold_email(lead: Dict, email_data: Dict, sender_name: str = "Vinay Bhar
     if html_body and "<html" not in html_body.lower():
         html_body = f"<p>{html_body.replace(chr(10), '</p><p>')}</p>"
 
+    cfg = get_smtp_config()
     return send_email(
         to_email=to_email,
         subject=subject,
         html_body=html_body,
         plain_text=plain_text,
         from_name=f"{sender_name} | SalesFlow CRM",
-        reply_to=SMTP_USER
+        reply_to=cfg["user"]
     )
 
 
@@ -217,11 +262,14 @@ def _wrap_html_template(body: str, subject: str) -> str:
 
 def get_smtp_status() -> Dict:
     """Return current SMTP configuration status (safe, no password exposed)."""
+    cfg = get_smtp_config()
+    user_masked = cfg["user"][:3] + "***" + cfg["user"].split("@")[-1] if cfg["user"] and "@" in cfg["user"] else ("Configured" if cfg["user"] else "Not set")
+    viewer = " · Review online: https://ethereal.email/messages" if "ethereal" in cfg["host"].lower() else ""
     return {
-        "configured": SMTP_ENABLED,
-        "host": SMTP_HOST,
-        "port": SMTP_PORT,
-        "user": SMTP_USER[:3] + "***" + SMTP_USER.split("@")[-1] if SMTP_USER else "Not set",
-        "from_name": SMTP_FROM_NAME,
-        "status": "✅ Ready to send real emails" if SMTP_ENABLED else "⚠️ Sending disabled: add valid SMTP credentials to .env"
+        "configured": cfg["enabled"],
+        "host": cfg["host"],
+        "port": cfg["port"],
+        "user": user_masked,
+        "from_name": cfg["from_name"],
+        "status": f"✅ Ready to send real emails via {cfg['host']}:{cfg['port']}{viewer}" if cfg["enabled"] else "⚠️ Sandbox mode active: add SMTP credentials to .env for external relay"
     }

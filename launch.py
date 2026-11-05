@@ -160,7 +160,7 @@ def start_gradio(port: int = 7860, share: bool = False):
         css=CSS,
         share=share,
         show_error=True,
-        inbrowser=True
+        inbrowser=False
     )
 
 

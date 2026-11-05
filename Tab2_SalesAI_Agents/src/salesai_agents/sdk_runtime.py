@@ -184,23 +184,32 @@ def run_agent(agent: Any, prompt: str, temperature: float = 0.3) -> str:
         instructions = getattr(agent, "instructions", "") or (agent.get("instructions", "") if isinstance(agent, dict) else "")
         return call_ai(prompt, system=instructions, temperature=temperature)
 
-    result = Runner.run_sync(
-        agent,
-        prompt,
-        max_turns=12,
-    )
-    if result.interruptions:
-        raise AgentApprovalRequired(
-            "The agent run is paused for human approval before an email can be sent.",
-            result.to_state(),
+    try:
+        result = Runner.run_sync(
+            agent,
+            prompt,
+            max_turns=12,
         )
-    output = result.final_output
-    if isinstance(output, AgentTextOutput):
-        return output.response
-    if isinstance(output, dict) and isinstance(output.get("response"), str):
-        return output["response"]
-    agent_name = getattr(agent, "name", str(type(agent)))
-    raise RuntimeError(f"{agent_name} returned an unexpected SDK output type: {type(output).__name__}")
+        if result.interruptions:
+            raise AgentApprovalRequired(
+                "The agent run is paused for human approval before an email can be sent.",
+                result.to_state(),
+            )
+        output = result.final_output
+        if isinstance(output, AgentTextOutput):
+            return output.response
+        if isinstance(output, dict) and isinstance(output.get("response"), str):
+            return output["response"]
+        agent_name = getattr(agent, "name", str(type(agent)))
+        raise RuntimeError(f"{agent_name} returned an unexpected SDK output type: {type(output).__name__}")
+    except Exception as exc:
+        if isinstance(exc, AgentApprovalRequired):
+            raise
+        # Fall back to multi-provider call_ai (Gemini / Groq / High-Concurrency fallback)
+        from salesai_agents.base import call_ai
+        agent_name = getattr(agent, "name", None) or (agent.get("name") if isinstance(agent, dict) else "Agent")
+        instructions = getattr(agent, "instructions", "") or (agent.get("instructions", "") if isinstance(agent, dict) else "")
+        return call_ai(prompt, system=instructions, temperature=temperature)
 
 
 def get_registered_agents() -> dict[str, Agent]:

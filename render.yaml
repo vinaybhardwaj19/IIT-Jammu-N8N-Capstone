@@ -1,0 +1,40 @@
+# ==============================================================================
+# Render Production Deployment Specification
+# Service: SalesFlow AI — CRM & Sales Automation Platform
+# Course : IIT Jammu Summer School 2026 | Vinay Bhardwaj
+# ==============================================================================
+
+services:
+  - type: web
+    name: salesflow-ai-crm
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 10000
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_HIGH_LOAD_FALLBACK
+        value: "true"
+      # Live Verified SMTP Configuration (TLS Delivery + Online Viewer)
+      - key: SMTP_HOST
+        value: smtp.ethereal.email
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: s2apuxrhufdlx7ye@ethereal.email
+      - key: SMTP_PASSWORD
+        value: tChtVBH7cNEXWv2hCh
+      - key: SMTP_FROM_NAME
+        value: SalesAI SDR | SalesFlow CRM
+

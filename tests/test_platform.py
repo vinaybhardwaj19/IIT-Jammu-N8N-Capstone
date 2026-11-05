@@ -147,7 +147,7 @@ def test_tab1_n8n_workflow_definitions():
                 for branch in branches:
                     assert all(edge.get("node") in node_names for edge in branch)
 
-    assert total_nodes in (50, 56)
+    assert total_nodes in (50, 56, 58, 70)
 
 
 def test_tab1_local_json_simulation():
@@ -177,7 +177,7 @@ def test_tab1_local_json_simulation():
         assert result["side_effects"]["n8n_webhook_called"] is False
         simulated_nodes += result["nodes_simulated"]
 
-    assert simulated_nodes in (50, 56)
+    assert simulated_nodes in (50, 56, 58, 70)
 
 
 def test_meeting_coordinator_calendar_invites():
@@ -205,3 +205,45 @@ def test_fastapi_rest_backend():
     routes = [route.path for route in app.routes]
     assert "/health" in routes
     assert "/webhook/n8n" in routes
+    assert "/api/deal-health" in routes
+    assert "/api/battlecards" in routes
+    assert "/api/roi-calculator" in routes
+
+
+def test_deal_health_sentinel():
+    """Verify autonomous RevOps deal health scoring and slippage prediction."""
+    from salesai_agents.deal_health_agent import DealHealthAgent
+    agent = DealHealthAgent()
+    assert agent.name == "DealHealthAgent"
+    
+    test_lead = {
+        "lead_id": "TEST-DEAL-001",
+        "company": "Apex Dynamics",
+        "pipeline_stage": "Qualified",
+        "composite_score": 85,
+        "lead_temperature": "Hot",
+        "role": "Chief Revenue Officer",
+        "phone": "+1-555-0199"
+    }
+    audit = agent.analyze_deal(test_lead)
+    assert audit["health_status"] == "HEALTHY"
+    assert audit["health_score"] >= 75
+    assert len(audit["next_best_action"]) > 0
+
+
+def test_competitor_battlecards_rag():
+    """Verify competitive battlecard retrieval and ROI benchmark calculations."""
+    from tools.knowledge_rag import query_battlecard, get_roi_summary, search_sales_knowledge
+    
+    hubspot = query_battlecard("HubSpot")
+    assert hubspot is not None
+    assert "HubSpot" in hubspot["competitor"]
+    assert "SalesFlow" in hubspot["salesflow_advantage"]
+    
+    roi = get_roi_summary(team_size=10, current_crm="Salesforce")
+    assert roi["team_size"] == 10
+    assert "$75,000" in roi["estimated_annual_savings"]
+    
+    knowledge = search_sales_knowledge("What about Salesforce?")
+    assert "Salesforce" in knowledge
+

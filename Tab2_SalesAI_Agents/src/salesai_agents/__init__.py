@@ -8,6 +8,7 @@ from .email_writer_agent import EmailWriterAgent
 from .objection_crm_agents import ObjectionHandlerAgent
 from .crm_manager_agent import CRMManagerAgent
 from .meeting_coordinator_agent import MeetingCoordinatorAgent
+from .deal_health_agent import DealHealthAgent
 
 __all__ = [
     'BaseAgent',
@@ -19,4 +20,5 @@ __all__ = [
     'ObjectionHandlerAgent',
     'CRMManagerAgent',
     'MeetingCoordinatorAgent',
+    'DealHealthAgent',
 ]

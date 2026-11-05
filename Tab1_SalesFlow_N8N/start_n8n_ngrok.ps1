@@ -40,8 +40,21 @@ $env:N8N_SECURE_COOKIE = 'false'
 
 $n8nOut = Join-Path $logDir 'n8n.out.log'
 $n8nErr = Join-Path $logDir 'n8n.err.log'
-Start-Process -FilePath $env:ComSpec -ArgumentList @('/c', $n8n, 'start', '--host', '127.0.0.1', '--port', "$Port") `
-  -WorkingDirectory $root -RedirectStandardOutput $n8nOut -RedirectStandardError $n8nErr -WindowStyle Hidden | Out-Null
+
+$isN8nRunning = $false
+try {
+  $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/healthz" -TimeoutSec 2
+  if ($health.status -eq 'ok') { $isN8nRunning = $true }
+} catch { }
+
+if ($isN8nRunning) {
+  Write-Host "Detected active n8n instance listening on port $Port (Docker or local service)." -ForegroundColor Green
+} else {
+  Write-Host "Launching local n8n on 127.0.0.1:$Port..." -ForegroundColor Cyan
+  $nodeBin = (Get-Item $n8n).Directory.FullName + '\node_modules\n8n\bin\n8n'
+  Start-Process -FilePath 'node' -ArgumentList @($nodeBin, 'start', '--host', '127.0.0.1', '--port', "$Port") `
+    -WorkingDirectory $root -RedirectStandardOutput $n8nOut -RedirectStandardError $n8nErr -WindowStyle Hidden | Out-Null
+}
 
 Write-Host ''
 Write-Host 'SalesFlow N8N HTTPS workspace is starting.' -ForegroundColor Green
