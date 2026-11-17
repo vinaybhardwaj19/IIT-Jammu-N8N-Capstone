@@ -479,24 +479,33 @@ def create_approval_request(
     conn = get_connection()
     c = conn.cursor()
     
+    import secrets
     if not approval_token:
-        import uuid
-        short_id = uuid.uuid4().hex[:6].upper()
-        approval_token = f"HITL-AUTH-{short_id}"
+        approval_token = f"HITL-AUTH-{secrets.token_hex(8).upper()}"
         
     now = datetime.now().isoformat()
+    row_id = None
     
-    c.execute("""
-        INSERT OR REPLACE INTO hitl_approvals (
-            approval_token, lead_id, item_type, title, lead_name, lead_company, lead_email,
-            deal_amount, ai_draft, risk_level, ai_confidence_score, status, requested_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
-    """, (
-        approval_token, lead_id, item_type, title, lead_name, lead_company, lead_email,
-        deal_amount, ai_draft, risk_level, ai_confidence_score, now
-    ))
-    row_id = c.lastrowid
-    conn.commit()
+    for attempt in range(5):
+        try:
+            c.execute("""
+                INSERT INTO hitl_approvals (
+                    approval_token, lead_id, item_type, title, lead_name, lead_company, lead_email,
+                    deal_amount, ai_draft, risk_level, ai_confidence_score, status, requested_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
+            """, (
+                approval_token, lead_id, item_type, title, lead_name, lead_company, lead_email,
+                deal_amount, ai_draft, risk_level, ai_confidence_score, now
+            ))
+            row_id = c.lastrowid
+            conn.commit()
+            break
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed" in str(e) and attempt < 4:
+                approval_token = f"HITL-AUTH-{secrets.token_hex(8).upper()}"
+                continue
+            conn.close()
+            raise
     
     # Also log into activities audit log
     if lead_id:
@@ -589,6 +598,20 @@ def process_approval_decision(
         return {"success": False, "error": f"Approval request '{token_or_id}' not found."}
         
     rec = dict(row)
+    
+    # Strictly enforce state machine idempotency: only Pending items can be decided
+    if rec["status"] != "Pending":
+        conn.close()
+        return {
+            "success": False,
+            "error": f"Invalid state transition: Approval request '{token_or_id}' has already been processed (Current Status: {rec['status']}).",
+            "current_status": rec["status"]
+        }
+        
+    if feedback and len(feedback) > 10000:
+        conn.close()
+        return {"success": False, "error": "Feedback exceeds maximum allowed length of 10,000 characters."}
+        
     now = datetime.now().isoformat()
     action = decision.strip().lower()
     
@@ -639,7 +662,9 @@ def process_approval_decision(
         try:
             from tools.email_sender import send_email
             subject = f"{rec['title']}"
-            html_content = f"<h3>SalesFlow AI — Verified Commercial Document</h3>\n<pre>{final_draft}</pre>"
+            import html
+            safe_draft_html = html.escape(final_draft)
+            html_content = f"<h3>SalesFlow AI — Verified Commercial Document</h3>\n<pre>{safe_draft_html}</pre>"
             dispatch_result = send_email(
                 to_email=rec["lead_email"],
                 subject=subject,

@@ -46,17 +46,23 @@ AVAILABLE_REPS = [
 ]
 
 
-def _clean_budget_amount(budget_str: str) -> int:
-    """Extract numeric budget integer from string."""
+def _clean_budget_amount(budget_raw) -> int:
+    """Extract numeric budget integer from string, int, float, or None defensively."""
+    if budget_raw is None:
+        return 45000
+    if isinstance(budget_raw, (int, float)):
+        return max(0, int(budget_raw))
+    budget_str = str(budget_raw).strip()
+    is_negative = '-' in budget_str
     digits = re.findall(r"\d+", budget_str.replace(",", ""))
     if digits:
         val = int(digits[0])
-        # If hourly or monthly, normalize
+        # If monthly, normalize to ARR
         if "month" in budget_str.lower() and val < 10000:
             val = val * 12
         elif val < 1000:
             val = val * 1000
-        return val
+        return 0 if is_negative else max(0, val)
     return 45000
 
 
