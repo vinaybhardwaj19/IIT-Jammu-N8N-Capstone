@@ -53,16 +53,32 @@ def _clean_budget_amount(budget_raw) -> int:
     if isinstance(budget_raw, (int, float)):
         return max(0, int(budget_raw))
     budget_str = str(budget_raw).strip()
-    is_negative = '-' in budget_str
-    digits = re.findall(r"\d+", budget_str.replace(",", ""))
-    if digits:
-        val = int(digits[0])
-        # If monthly, normalize to ARR
-        if "month" in budget_str.lower() and val < 10000:
-            val = val * 12
-        elif val < 1000:
-            val = val * 1000
-        return 0 if is_negative else max(0, val)
+    if not budget_str or budget_str.lower() in ("tbd", "tba", "unknown", "n/a", "none"):
+        return 45000
+    if '-' in budget_str and not any(c.isdigit() for c in budget_str.split('-')[0]):
+        # Negative value e.g. "-$50,000"
+        return 0
+
+    # Look for explicit magnitude suffixes like "1.5m", "2.5M", "45k", "45K"
+    m_match = re.search(r"(\d+(?:\.\d+)?)\s*[mM]", budget_str)
+    if m_match:
+        return max(0, int(float(m_match.group(1)) * 1_000_000))
+
+    k_match = re.search(r"(\d+(?:\.\d+)?)\s*[kK]", budget_str)
+    if k_match:
+        return max(0, int(float(k_match.group(1)) * 1_000))
+
+    # Standard clean number with optional commas and decimals
+    clean_str = re.sub(r"[^\d.]", "", budget_str)
+    if clean_str:
+        try:
+            val = int(float(clean_str))
+            if "month" in budget_str.lower() and val < 50000:
+                val = val * 12
+            return max(0, val)
+        except ValueError:
+            pass
+
     return 45000
 
 
@@ -85,20 +101,21 @@ def run_node_pipeline(
     nodes = wf_spec.get("nodes", [])
     wf_name = wf_spec.get("name", wf_id)
     
-    start_total_time = time.time()
+    start_total_time = time.perf_counter()
     trace: List[Dict[str, Any]] = []
     
-    # State dictionary flowing from node to node
+    # State dictionary flowing from node to node (defensively type-cast and normalized)
+    raw_b = lead_input.get("budget")
     state: Dict[str, Any] = {
-        "lead_id": lead_input.get("lead_id") or f"LEAD-N8N-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        "full_name": lead_input.get("full_name") or lead_input.get("name") or "Priya Sharma",
-        "company": lead_input.get("company") or "TechVision Solutions",
-        "email": lead_input.get("email") or "priya.sharma@techvision.io",
-        "role": lead_input.get("role") or "VP of Sales",
-        "industry": lead_input.get("industry") or "B2B SaaS",
-        "budget": lead_input.get("budget") or "$45,000/year",
-        "notes": lead_input.get("notes") or "Inbound inquiry seeking sales automation & CRM pipeline intelligence.",
-        "stage": lead_input.get("stage") or "New Lead",
+        "lead_id": str(lead_input.get("lead_id") or f"LEAD-N8N-{datetime.now().strftime('%Y%m%d%H%M%S')}"),
+        "full_name": str(lead_input.get("full_name") or lead_input.get("name") or "Priya Sharma").strip() or "Priya Sharma",
+        "company": str(lead_input.get("company") or "TechVision Solutions").strip() or "TechVision Solutions",
+        "email": str(lead_input.get("email") or "priya.sharma@techvision.io").strip() or "priya.sharma@techvision.io",
+        "role": str(lead_input.get("role") or "VP of Sales").strip() or "VP of Sales",
+        "industry": str(lead_input.get("industry") or "B2B SaaS").strip() or "B2B SaaS",
+        "budget": "$45,000/year" if raw_b is None or raw_b == "" else str(raw_b),
+        "notes": str(lead_input.get("notes") or "Inbound inquiry seeking sales automation & CRM pipeline intelligence."),
+        "stage": str(lead_input.get("stage") or "New Lead"),
         "source": "N8N " + ("Live Webhook" if is_live_webhook else "Workflow Engine"),
         "timestamp": datetime.now().isoformat(),
     }
@@ -108,7 +125,8 @@ def run_node_pipeline(
     for idx, node in enumerate(nodes, start=1):
         n_name = node.get("name", f"Node {idx}")
         n_type = node.get("type", "unknown")
-        n_start = time.time()
+        n_start = time.perf_counter()
+        tag = (n_name + " " + n_type).lower()
         
         status = "EXECUTED"
         node_input = {}
@@ -118,7 +136,7 @@ def run_node_pipeline(
         # ─────────────────────────────────────────────────────────────
         # 1. TRIGGER NODES (Webhook & Schedule)
         # ─────────────────────────────────────────────────────────────
-        if "webhook" in n_type.lower():
+        if ("webhook" in tag or "trigger" in tag) and "response" not in tag and "code" not in n_type.lower():
             node_input = {"http_method": "POST", "path": node.get("parameters", {}).get("path", "/webhook"), "headers": {"Content-Type": "application/json"}}
             node_output = {
                 "accepted": True,
@@ -129,7 +147,7 @@ def run_node_pipeline(
             }
             detail_msg = f"Ingested incoming lead payload for {state['full_name']} @ {state['company']}. Verified schema & assigned ID `{state['lead_id']}`."
             
-        elif "schedule" in n_type.lower():
+        elif "schedule" in tag and "code" not in n_type.lower():
             cron_expr = node.get("parameters", {}).get("rule", {}).get("value", "Every 8 hours")
             node_input = {"trigger_type": "CRON_SCHEDULE", "frequency": cron_expr}
             node_output = {"cron_fired": True, "job_id": f"CRON-{int(time.time())}", "executed_at": state["timestamp"]}
@@ -138,10 +156,10 @@ def run_node_pipeline(
         # ─────────────────────────────────────────────────────────────
         # 2. DATA NORMALIZATION (Set Node)
         # ─────────────────────────────────────────────────────────────
-        elif "set" in n_type.lower():
-            state["full_name"] = state["full_name"].strip().title()
-            state["email"] = state["email"].strip().lower()
-            state["company"] = state["company"].strip()
+        elif "set:" in tag or "format lead" in tag or ("set" in n_type.lower() and "response" not in tag):
+            state["full_name"] = str(state["full_name"]).strip().title()
+            state["email"] = str(state["email"]).strip().lower()
+            state["company"] = str(state["company"]).strip()
             state["normalized"] = True
             node_input = {"raw_name": state["full_name"], "raw_email": state["email"], "raw_budget": state["budget"]}
             node_output = {
@@ -153,9 +171,127 @@ def run_node_pipeline(
             detail_msg = f"Normalized contact schema: Sanitized email `{state['email']}`, extracted integer deal value `${state['deal_amount']:,}`, and validated syntax."
 
         # ─────────────────────────────────────────────────────────────
-        # 3. AI REASONING / SCORING (OpenAI / Gemini Node)
+        # 3. HUMAN-IN-THE-LOOP WAIT GATE (wait) — High Priority Check
         # ─────────────────────────────────────────────────────────────
-        elif "openai" in n_type.lower():
+        elif "wait" in tag or "hitl" in tag or "approval" in tag:
+            auth_token = f"HITL-AUTH-{state['lead_id'][-6:]}"
+            state["hitl_token"] = auth_token
+            
+            # Enqueue real Human-in-the-Loop approval record in CRM database
+            try:
+                from tools.crm_database import create_approval_request
+                create_approval_request(
+                    item_type="proposal",
+                    title=f"Commercial Enterprise Agreement — {state['company']} (${state['deal_amount']:,} ARR)",
+                    ai_draft=f"# Commercial Enterprise Agreement\n\n**Client:** {state['company']}\n**Stakeholder:** {state['full_name']} ({state['email']})\n**Annual Contract Value:** ${state['deal_amount']:,}\n**Scope of Service:** Enterprise SalesFlow AI Orchestration Suite, Relational SQLite CRM Persistence, Multi-Touch Autonomous SDR Cadences.\n\n*Supervisory Guard: Awaiting human sign-off before client email dispatch.*",
+                    lead_id=state.get("lead_id"),
+                    lead_name=state.get("full_name", "Enterprise Prospect"),
+                    lead_company=state.get("company", "Enterprise Account"),
+                    lead_email=state.get("email", ""),
+                    deal_amount=f"${state['deal_amount']:,}",
+                    risk_level="Medium",
+                    ai_confidence_score=int(state.get("bant_score", 92)),
+                    approval_token=auth_token
+                )
+            except Exception:
+                pass
+
+            node_input = {"pause_condition": "Manager Approval Required", "approval_timeout_hours": 24}
+            node_output = {"approval_gate": "ARMED", "security_token": auth_token, "reviewer_role": "Sales Operations Director", "queue_status": "ENQUEUED_IN_HITL_CENTER"}
+            detail_msg = f"🛡️ HITL Approval Checkpoint: Paused and enqueued into **Human Supervisory Center** with security token `{auth_token}`. Requires human manager sign-off before dispatch."
+
+        # ─────────────────────────────────────────────────────────────
+        # 4. POSTGRES / SQLITE CRM DATABASE NODE
+        # ─────────────────────────────────────────────────────────────
+        elif "postgres" in tag or "crm db" in tag or "database" in tag or "sqlite" in tag:
+            # Actually mutate or read the local SQLite CRM database!
+            if "fetch" in tag or "pull" in tag or "get" in tag:
+                existing = get_lead(state["lead_id"]) or {}
+                stats = get_pipeline_stats()
+                node_input = {"query_target": "leads", "lead_id": state["lead_id"]}
+                node_output = {"records_found": 1 if existing else 0, "active_pipeline_deals": stats.get("total_leads", 0), "pipeline_value": stats.get("total_value", "$0")}
+                detail_msg = f"Database Read: Queried `salesai.db` CRM records. Active deals in pipeline: {stats.get('total_leads', 0)}."
+            else:
+                # Insert or update lead in CRM
+                if wf_id == "WF-01":
+                    state["stage"] = "New Lead"
+                elif wf_id == "WF-02":
+                    state["stage"] = "Qualified"
+                elif wf_id == "WF-05":
+                    state["stage"] = "Proposal Sent"
+                    
+                saved = upsert_lead(state)
+                log_activity(
+                    state["lead_id"],
+                    f"n8n_{wf_id.lower()}_{n_name.lower().replace(' ', '_')[:25]}",
+                    f"Workflow {wf_id} ({n_name}): Stage='{state['stage']}', Score={state.get('bant_score', state.get('initial_score', 85))}",
+                    "success",
+                    f"N8N Engine [{wf_id}]"
+                )
+                node_input = {"table": "leads", "lead_id": state["lead_id"], "stage": state["stage"], "deal_amount": state["deal_amount"]}
+                node_output = {"row_id": str(saved), "committed": True, "database": "salesai.db (SQLite)", "stage": state["stage"]}
+                detail_msg = f"Database Write: Committed lead record to `salesai.db` (`leads` table). Updated deal stage to **{state['stage']}**."
+
+        # ─────────────────────────────────────────────────────────────
+        # 5. GMAIL / SMTP EMAIL NODE
+        # ─────────────────────────────────────────────────────────────
+        elif "gmail" in tag or "email" in tag or "smtp" in tag:
+            subj = f"Welcome to SalesFlow AI — {state['company']}"
+            body = f"Hello {state['full_name']},\n\nThank you for reaching out regarding SalesFlow AI. Your inquiry has been prioritized with reference ID {state['lead_id']}."
+            if "rep" in tag:
+                subj = f"New Lead Assignment: {state['full_name']} ({state['company']})"
+                body = f"Team Alert:\n\n{state['full_name']} from {state['company']} has been routed to you. Budget: {state['budget']}. Score: {state.get('bant_score', 85)}."
+            elif "proposal" in tag:
+                subj = f"SalesFlow AI Proposal: {state['company']}"
+                body = f"Dear {state['full_name']},\n\nPlease find attached our commercial proposal tailored to {state['company']}."
+
+            node_input = {"recipient": state["email"], "subject": subj}
+            
+            # Send real email via SMTP if enabled
+            smtp_res = send_email(to_email=state["email"], subject=subj, html_body=f"<p>{body}</p>", plain_text=body)
+            msg_id = smtp_res.get("message_id", f"msg-{int(time.time())}")
+            node_output = {
+                "sent": True,
+                "message_id": msg_id,
+                "recipient": state["email"],
+                "subject": subj,
+                "smtp_host": smtp_res.get("host", "smtp.ethereal.email"),
+                "status": smtp_res.get("status", "LIVE_DELIVERED"),
+                "viewer_url": smtp_res.get("viewer_url", "")
+            }
+            state["last_email_sent"] = node_output
+            view_note = f" · [View Message Online]({smtp_res['viewer_url']})" if smtp_res.get("viewer_url") else ""
+            detail_msg = f"SMTP Transport: Dispatched email to `{state['email']}` via `{node_output['smtp_host']}` (Message-ID: `{msg_id}`){view_note}."
+
+        # ─────────────────────────────────────────────────────────────
+        # 6. SLACK NOTIFICATIONS
+        # ─────────────────────────────────────────────────────────────
+        elif "slack" in tag:
+            channel = "#hot-leads-alert" if "hot" in tag else "#sales-notifications"
+            node_input = {"channel": channel, "lead": state["full_name"], "company": state["company"]}
+            node_output = {"delivered": True, "channel": channel, "ts": f"{int(time.time())}.000100", "blocks_rendered": 3}
+            detail_msg = f"Slack Dispatch: Emitted formatted BlockKit card to `{channel}` for **{state['full_name']} @ {state['company']}**."
+
+        # ─────────────────────────────────────────────────────────────
+        # 7. GOOGLE ECOSYSTEM (Calendar, Drive, Sheets)
+        # ─────────────────────────────────────────────────────────────
+        elif "calendar" in tag:
+            slot_time = state.get("meeting_slot", (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d 14:00 EST"))
+            cal_url = f"https://calendar.google.com/calendar/render?action=TEMPLATE&text=Discovery+Call:+{state['company']}&dates={datetime.now().strftime('%Y%m%d')}T140000Z/{datetime.now().strftime('%Y%m%d')}T143000Z"
+            node_input = {"title": f"SalesFlow Discovery: {state['company']}", "slot": slot_time, "attendees": [state["email"]]}
+            node_output = {"status": "CONFIRMED", "invite_link": cal_url, "duration_minutes": 30}
+            detail_msg = f"Google Calendar: Generated 1-Click invite link for **{slot_time}** · [Open Calendar Invite]({cal_url})."
+
+        elif "drive" in tag or "sheets" in tag:
+            doc_id = f"DOC-{state['lead_id'][-8:]}"
+            node_input = {"destination": "Enterprise Sales Shared Drive", "filename": f"Proposal_{state['company']}.pdf"}
+            node_output = {"file_id": doc_id, "folder": "Client Proposals 2026", "sync_status": "SYNCHRONIZED"}
+            detail_msg = f"Cloud Storage: Synchronized `{doc_id}` to enterprise repository with audit revision tag."
+
+        # ─────────────────────────────────────────────────────────────
+        # 8. AI REASONING / SCORING (OpenAI / Gemini / Heuristic Node)
+        # ─────────────────────────────────────────────────────────────
+        elif "openai" in tag or "ai:" in tag or "scoring" in tag or "qualification" in tag or "proposal" in tag:
             node_input = {"contact": state["full_name"], "company": state["company"], "budget": state["budget"], "role": state["role"], "notes": state["notes"]}
             
             # Execute AI analysis or smart fallback
@@ -219,9 +355,40 @@ def run_node_pipeline(
                 detail_msg = "AI Executive Intelligence: Synthesized weekly revenue trends, rep quota attainment, and deal velocity."
 
         # ─────────────────────────────────────────────────────────────
-        # 4. ALGORITHM / JS CODE NODE (n8n-nodes-base.code)
+        # 9. IF & SWITCH ROUTING NODES (if / switch)
         # ─────────────────────────────────────────────────────────────
-        elif "code" in n_type.lower():
+        elif "if" in n_type.lower() or n_name.lower().startswith("if:"):
+            score = state.get("bant_score", state.get("initial_score", 85))
+            condition = "score >= 70"
+            cond_result = score >= 70
+            node_input = {"left_value": score, "operator": ">=", "right_value": 70}
+            node_output = {"evaluated": True, "branch": "TRUE (Hot Path)" if cond_result else "FALSE (Standard Path)"}
+            detail_msg = f"Conditional Gate: Evaluated `{condition}` (Score: {score}) -> **{'TRUE (Hot Path)' if cond_result else 'FALSE (Standard Path)'}**."
+
+        elif "switch" in n_type.lower() or n_name.lower().startswith("switch:"):
+            score = state.get("bant_score", 85)
+            branch = "Branch 1: Qualified (>=70)" if score >= 70 else ("Branch 2: Nurture (40-69)" if score >= 40 else "Branch 3: Cold (<40)")
+            node_input = {"score": score, "routes": ["Score >= 70", "Score 40-69", "Score < 40"]}
+            node_output = {"selected_route": branch, "route_index": 0 if score >= 70 else (1 if score >= 40 else 2)}
+            detail_msg = f"Multi-Way Switch: Evaluated lead score **{score}/100** -> Routed to **{branch}**."
+
+        # ─────────────────────────────────────────────────────────────
+        # 10. WEBHOOK RESPONSE & CIRCUIT BREAKERS
+        # ─────────────────────────────────────────────────────────────
+        elif "respondtowebhook" in tag or "webhook response" in tag:
+            node_input = {"http_status": 200, "content_type": "application/json"}
+            node_output = {"status": "SUCCESS", "lead_id": state["lead_id"], "stage": state["stage"], "telemetry_logged": True}
+            detail_msg = f"HTTP 200 Response: Emitted final JSON payload to caller with execution metrics and state references."
+
+        elif "stopanderror" in tag or "stop:" in tag:
+            node_input = {"error_handling_mode": "CIRCUIT_BREAKER_PASS"}
+            node_output = {"errors_intercepted": 0, "pipeline_integrity": "100% HEALTHY"}
+            detail_msg = f"Error Sentinel: Confirmed zero pipeline exceptions. Circuit breaker in PASSIVE_HEALTHY state."
+
+        # ─────────────────────────────────────────────────────────────
+        # 11. ALGORITHM / JS CODE NODE (n8n-nodes-base.code)
+        # ─────────────────────────────────────────────────────────────
+        elif "code" in tag:
             if wf_id == "WF-03":
                 # Smart Rep Assignment
                 chosen_rep = AVAILABLE_REPS[0] if state.get("bant_score", 85) >= 75 else AVAILABLE_REPS[1]
@@ -243,164 +410,12 @@ def run_node_pipeline(
                 node_output = {"merged_keys": list(state.keys()), "enrichment_score": 98.5}
                 detail_msg = f"Code Transformation: Merged payload attributes, calculated win probability (78%), and validated record integrity."
 
-        # ─────────────────────────────────────────────────────────────
-        # 5. POSTGRES / SQLITE CRM DATABASE NODE (n8n-nodes-base.postgres)
-        # ─────────────────────────────────────────────────────────────
-        elif "postgres" in n_type.lower():
-            # Actually mutate or read the local SQLite CRM database!
-            if "fetch" in n_name.lower() or "pull" in n_name.lower() or "get" in n_name.lower():
-                existing = get_lead(state["lead_id"]) or {}
-                stats = get_pipeline_stats()
-                node_input = {"query_target": "leads", "lead_id": state["lead_id"]}
-                node_output = {"records_found": 1 if existing else 0, "active_pipeline_deals": stats.get("total_leads", 0), "pipeline_value": stats.get("total_value", "$0")}
-                detail_msg = f"Database Read: Queried `salesai.db` CRM records. Active deals in pipeline: {stats.get('total_leads', 0)}."
-            else:
-                # Insert or update lead in CRM
-                if wf_id == "WF-01":
-                    state["stage"] = "New Lead"
-                elif wf_id == "WF-02":
-                    state["stage"] = "Qualified"
-                elif wf_id == "WF-05":
-                    state["stage"] = "Proposal Sent"
-                    
-                saved = upsert_lead(state)
-                log_activity(
-                    state["lead_id"],
-                    f"n8n_{wf_id.lower()}_{n_name.lower().replace(' ', '_')[:25]}",
-                    f"Workflow {wf_id} ({n_name}): Stage='{state['stage']}', Score={state.get('bant_score', state.get('initial_score', 85))}",
-                    "success",
-                    f"N8N Engine [{wf_id}]"
-                )
-                node_input = {"table": "leads", "lead_id": state["lead_id"], "stage": state["stage"], "deal_amount": state["deal_amount"]}
-                node_output = {"row_id": str(saved), "committed": True, "database": "salesai.db (SQLite)", "stage": state["stage"]}
-                detail_msg = f"Database Write: Committed lead record to `salesai.db` (`leads` table). Updated deal stage to **{state['stage']}**."
-
-        # ─────────────────────────────────────────────────────────────
-        # 6. GMAIL / SMTP EMAIL NODE (n8n-nodes-base.gmail)
-        # ─────────────────────────────────────────────────────────────
-        elif "gmail" in n_type.lower():
-            subj = f"Welcome to SalesFlow AI — {state['company']}"
-            body = f"Hello {state['full_name']},\n\nThank you for reaching out regarding SalesFlow AI. Your inquiry has been prioritized with reference ID {state['lead_id']}."
-            if "rep" in n_name.lower():
-                subj = f"New Lead Assignment: {state['full_name']} ({state['company']})"
-                body = f"Team Alert:\n\n{state['full_name']} from {state['company']} has been routed to you. Budget: {state['budget']}. Score: {state.get('bant_score', 85)}."
-            elif "proposal" in n_name.lower():
-                subj = f"SalesFlow AI Proposal: {state['company']}"
-                body = f"Dear {state['full_name']},\n\nPlease find attached our commercial proposal tailored to {state['company']}."
-
-            node_input = {"recipient": state["email"], "subject": subj}
-            
-            # Send real email via SMTP if enabled
-            smtp_res = send_email(to_email=state["email"], subject=subj, html_body=f"<p>{body}</p>", plain_text=body)
-            msg_id = smtp_res.get("message_id", f"msg-{int(time.time())}")
-            node_output = {
-                "sent": True,
-                "message_id": msg_id,
-                "recipient": state["email"],
-                "subject": subj,
-                "smtp_host": smtp_res.get("host", "smtp.ethereal.email"),
-                "status": smtp_res.get("status", "LIVE_DELIVERED"),
-                "viewer_url": smtp_res.get("viewer_url", "")
-            }
-            state["last_email_sent"] = node_output
-            view_note = f" · [View Message Online]({smtp_res['viewer_url']})" if smtp_res.get("viewer_url") else ""
-            detail_msg = f"SMTP Transport: Dispatched email to `{state['email']}` via `{node_output['smtp_host']}` (Message-ID: `{msg_id}`){view_note}."
-
-        # ─────────────────────────────────────────────────────────────
-        # 7. IF & SWITCH ROUTING NODES (if / switch)
-        # ─────────────────────────────────────────────────────────────
-        elif "if" in n_type.lower():
-            score = state.get("bant_score", state.get("initial_score", 85))
-            condition = "score >= 70"
-            cond_result = score >= 70
-            node_input = {"left_value": score, "operator": ">=", "right_value": 70}
-            node_output = {"evaluated": True, "branch": "TRUE (Hot Path)" if cond_result else "FALSE (Standard Path)"}
-            detail_msg = f"Conditional Gate: Evaluated `{condition}` (Score: {score}) -> **{'TRUE (Hot Path)' if cond_result else 'FALSE (Standard Path)'}**."
-
-        elif "switch" in n_type.lower():
-            score = state.get("bant_score", 85)
-            branch = "Branch 1: Qualified (>=70)" if score >= 70 else ("Branch 2: Nurture (40-69)" if score >= 40 else "Branch 3: Cold (<40)")
-            node_input = {"score": score, "routes": ["Score >= 70", "Score 40-69", "Score < 40"]}
-            node_output = {"selected_route": branch, "route_index": 0 if score >= 70 else (1 if score >= 40 else 2)}
-            detail_msg = f"Multi-Way Switch: Evaluated lead score **{score}/100** -> Routed to **{branch}**."
-
-        # ─────────────────────────────────────────────────────────────
-        # 8. SLACK NOTIFICATIONS (slack)
-        # ─────────────────────────────────────────────────────────────
-        elif "slack" in n_type.lower():
-            channel = "#hot-leads-alert" if "hot" in n_name.lower() else "#sales-notifications"
-            node_input = {"channel": channel, "lead": state["full_name"], "company": state["company"]}
-            node_output = {"delivered": True, "channel": channel, "ts": f"{int(time.time())}.000100", "blocks_rendered": 3}
-            detail_msg = f"Slack Dispatch: Emitted formatted BlockKit card to `{channel}` for **{state['full_name']} @ {state['company']}**."
-
-        # ─────────────────────────────────────────────────────────────
-        # 9. GOOGLE ECOSYSTEM (Calendar, Drive, Sheets)
-        # ─────────────────────────────────────────────────────────────
-        elif "calendar" in n_type.lower():
-            slot_time = state.get("meeting_slot", (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d 14:00 EST"))
-            cal_url = f"https://calendar.google.com/calendar/render?action=TEMPLATE&text=Discovery+Call:+{state['company']}&dates={datetime.now().strftime('%Y%m%d')}T140000Z/{datetime.now().strftime('%Y%m%d')}T143000Z"
-            node_input = {"title": f"SalesFlow Discovery: {state['company']}", "slot": slot_time, "attendees": [state["email"]]}
-            node_output = {"status": "CONFIRMED", "invite_link": cal_url, "duration_minutes": 30}
-            detail_msg = f"Google Calendar: Generated 1-Click invite link for **{slot_time}** · [Open Calendar Invite]({cal_url})."
-
-        elif "drive" in n_type.lower() or "sheets" in n_type.lower():
-            doc_id = f"DOC-{state['lead_id'][-8:]}"
-            node_input = {"destination": "Enterprise Sales Shared Drive", "filename": f"Proposal_{state['company']}.pdf"}
-            node_output = {"file_id": doc_id, "folder": "Client Proposals 2026", "sync_status": "SYNCHRONIZED"}
-            detail_msg = f"Cloud Storage: Synchronized `{doc_id}` to enterprise repository with audit revision tag."
-
-        # ─────────────────────────────────────────────────────────────
-        # 10. HUMAN-IN-THE-LOOP WAIT GATE (wait)
-        # ─────────────────────────────────────────────────────────────
-        elif "wait" in n_type.lower():
-            auth_token = f"HITL-AUTH-{state['lead_id'][-6:]}"
-            state["hitl_token"] = auth_token
-            
-            # Enqueue real Human-in-the-Loop approval record in CRM database
-            try:
-                from tools.crm_database import create_approval_request
-                create_approval_request(
-                    item_type="proposal",
-                    title=f"Commercial Enterprise Agreement — {state['company']} (${state['deal_amount']:,} ARR)",
-                    ai_draft=f"# Commercial Enterprise Agreement\n\n**Client:** {state['company']}\n**Stakeholder:** {state['full_name']} ({state['email']})\n**Annual Contract Value:** ${state['deal_amount']:,}\n**Scope of Service:** Enterprise SalesFlow AI Orchestration Suite, Relational SQLite CRM Persistence, Multi-Touch Autonomous SDR Cadences.\n\n*Supervisory Guard: Awaiting human sign-off before client email dispatch.*",
-                    lead_id=state.get("lead_id"),
-                    lead_name=state.get("full_name", "Enterprise Prospect"),
-                    lead_company=state.get("company", "Enterprise Account"),
-                    lead_email=state.get("email", ""),
-                    deal_amount=f"${state['deal_amount']:,}",
-                    risk_level="Medium",
-                    ai_confidence_score=int(state.get("bant_score", 92)),
-                    approval_token=auth_token
-                )
-            except Exception:
-                pass
-
-            node_input = {"pause_condition": "Manager Approval Required", "approval_timeout_hours": 24}
-            node_output = {"approval_gate": "ARMED", "security_token": auth_token, "reviewer_role": "Sales Operations Director", "queue_status": "ENQUEUED_IN_HITL_CENTER"}
-            detail_msg = f"🛡️ HITL Approval Checkpoint: Paused and enqueued into **Human Supervisory Center** with security token `{auth_token}`. Requires human manager sign-off before dispatch."
-
-        # ─────────────────────────────────────────────────────────────
-        # 11. WEBHOOK RESPONSE & CIRCUIT BREAKERS
-        # ─────────────────────────────────────────────────────────────
-        elif "respondtowebhook" in n_type.lower():
-            node_input = {"http_status": 200, "content_type": "application/json"}
-            node_output = {"status": "SUCCESS", "lead_id": state["lead_id"], "stage": state["stage"], "telemetry_logged": True}
-            detail_msg = f"HTTP 200 Response: Emitted final JSON payload to caller with execution metrics and state references."
-
-        elif "stopanderror" in n_type.lower():
-            node_input = {"error_handling_mode": "CIRCUIT_BREAKER_PASS"}
-            node_output = {"errors_intercepted": 0, "pipeline_integrity": "100% HEALTHY"}
-            detail_msg = f"Error Sentinel: Confirmed zero pipeline exceptions. Circuit breaker in PASSIVE_HEALTHY state."
-
         else:
             node_input = {"context": state["lead_id"]}
             node_output = {"status": "COMPLETED"}
             detail_msg = f"Executed {n_name} successfully."
 
-        n_elapsed = int((time.time() - n_start) * 1000)
-        if n_elapsed == 0:
-            n_elapsed = 8 + (idx * 3)
-
+        n_elapsed = round((time.perf_counter() - n_start) * 1000, 2)
         trace.append({
             "step": idx,
             "node_name": n_name,
@@ -412,9 +427,7 @@ def run_node_pipeline(
             "output": node_output
         })
 
-    total_elapsed_ms = int((time.time() - start_total_time) * 1000)
-    if total_elapsed_ms == 0:
-        total_elapsed_ms = 45
+    total_elapsed_ms = round((time.perf_counter() - start_total_time) * 1000, 2)
 
     # Build human-readable Markdown log
     md_lines = [

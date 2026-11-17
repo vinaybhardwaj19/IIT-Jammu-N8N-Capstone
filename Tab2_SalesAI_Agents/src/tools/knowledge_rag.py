@@ -108,7 +108,19 @@ def search_sales_knowledge(query: str) -> str:
                 f"- Cost Advantage: {card['cost_comparison']}\n"
                 f"- Killer Feature: {card['killer_feature']}"
             )
-            
+
+    # Check Case Studies & Company References
+    for cs in CASE_STUDIES:
+        co_key = cs["company"].split("(")[0].strip().lower()
+        if co_key in q_lower or any(k in q_lower for k in ["cloudmatrix", "fintech shield", "case study", "customer proof"]):
+            if co_key in q_lower or "case study" in q_lower or "cloudmatrix" in q_lower:
+                return (
+                    f"Verified Customer Case Study — {cs['company']}:\n"
+                    f"- Challenge: {cs['challenge']}\n"
+                    f"- Solution: {cs['solution']}\n"
+                    f"- Verified Result: {cs['result']}"
+                )
+
     # Check ROI / Pricing questions
     if any(w in q_lower for w in ["roi", "cost", "save", "pricing", "expensive", "budget", "worth"]):
         return (
