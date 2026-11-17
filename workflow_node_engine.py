@@ -349,9 +349,29 @@ def run_node_pipeline(
         elif "wait" in n_type.lower():
             auth_token = f"HITL-AUTH-{state['lead_id'][-6:]}"
             state["hitl_token"] = auth_token
+            
+            # Enqueue real Human-in-the-Loop approval record in CRM database
+            try:
+                from tools.crm_database import create_approval_request
+                create_approval_request(
+                    item_type="proposal",
+                    title=f"Commercial Enterprise Agreement — {state['company']} (${state['deal_amount']:,} ARR)",
+                    ai_draft=f"# Commercial Enterprise Agreement\n\n**Client:** {state['company']}\n**Stakeholder:** {state['full_name']} ({state['email']})\n**Annual Contract Value:** ${state['deal_amount']:,}\n**Scope of Service:** Enterprise SalesFlow AI Orchestration Suite, Relational SQLite CRM Persistence, Multi-Touch Autonomous SDR Cadences.\n\n*Supervisory Guard: Awaiting human sign-off before client email dispatch.*",
+                    lead_id=state.get("lead_id"),
+                    lead_name=state.get("full_name", "Enterprise Prospect"),
+                    lead_company=state.get("company", "Enterprise Account"),
+                    lead_email=state.get("email", ""),
+                    deal_amount=f"${state['deal_amount']:,}",
+                    risk_level="Medium",
+                    ai_confidence_score=int(state.get("bant_score", 92)),
+                    approval_token=auth_token
+                )
+            except Exception:
+                pass
+
             node_input = {"pause_condition": "Manager Approval Required", "approval_timeout_hours": 24}
-            node_output = {"approval_gate": "ARMED", "security_token": auth_token, "reviewer_role": "Sales Operations Director"}
-            detail_msg = f"Human Approval Gate: Paused at HITL node. Generated verification token: `{auth_token}` (Authorized & Approved)."
+            node_output = {"approval_gate": "ARMED", "security_token": auth_token, "reviewer_role": "Sales Operations Director", "queue_status": "ENQUEUED_IN_HITL_CENTER"}
+            detail_msg = f"🛡️ HITL Approval Checkpoint: Paused and enqueued into **Human Supervisory Center** with security token `{auth_token}`. Requires human manager sign-off before dispatch."
 
         # ─────────────────────────────────────────────────────────────
         # 11. WEBHOOK RESPONSE & CIRCUIT BREAKERS

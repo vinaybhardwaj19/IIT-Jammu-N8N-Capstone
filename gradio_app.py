@@ -40,7 +40,12 @@ from salesai_agents.email_writer_agent import EmailWriterAgent
 from salesai_agents.objection_crm_agents import ObjectionHandlerAgent
 from salesai_agents.crm_manager_agent import CRMManagerAgent
 from salesai_agents.meeting_coordinator_agent import MeetingCoordinatorAgent
-from tools.crm_database import get_all_leads, get_pipeline_stats, upsert_lead, get_lead, init_database, mark_email_sent, estimate_deal_amount, log_activity, get_activities, update_lead_stage
+from tools.crm_database import (
+    get_all_leads, get_pipeline_stats, upsert_lead, get_lead, init_database,
+    mark_email_sent, estimate_deal_amount, log_activity, get_activities, update_lead_stage,
+    get_pending_approvals, get_approval_history, process_approval_decision,
+    create_approval_request, seed_default_hitl_queue, get_approval_by_token
+)
 from tools.email_sender import send_cold_email, get_smtp_status
 from tools.revops_engine import generate_kanban_board_html, calculate_deterministic_roi, generate_risk_matrix_html, move_deal_stage
 from tools.knowledge_rag import query_battlecard, get_roi_summary, search_sales_knowledge, BATTLECARDS, CASE_STUDIES, ROI_BENCHMARKS
@@ -1646,12 +1651,225 @@ def render_database_audit_trail_html(lead_filter: str = "All Leads", type_filter
     """
 
 
+# ── Human-in-the-Loop (HITL) Supervisory Helper Functions ─────
+
+def get_hitl_metrics_html() -> str:
+    pending = get_pending_approvals()
+    history = get_approval_history()
+    approved = [h for h in history if "Approved" in h.get("status", "")]
+    rejected = [h for h in history if "Rejected" in h.get("status", "")]
+    
+    return f"""
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:16px; margin-bottom: 24px;">
+      <div style="background:#fff; border-radius:12px; padding:18px 24px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; font-weight:600;">Pending Review</div>
+        <div style="font-size:32px; font-weight:800; color:#f59e0b; margin-top:4px;">{len(pending)}</div>
+        <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Awaiting Human Sign-off</div>
+      </div>
+      <div style="background:#fff; border-radius:12px; padding:18px 24px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; font-weight:600;">Human Approved</div>
+        <div style="font-size:32px; font-weight:800; color:#10b981; margin-top:4px;">{len(approved)}</div>
+        <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Authorized & Dispatched via SMTP</div>
+      </div>
+      <div style="background:#fff; border-radius:12px; padding:18px 24px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; font-weight:600;">Rejected / Rework</div>
+        <div style="font-size:32px; font-weight:800; color:#ef4444; margin-top:4px;">{len(rejected)}</div>
+        <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Feedback Logged for RLHF</div>
+      </div>
+      <div style="background:#fff; border-radius:12px; padding:18px 24px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; font-weight:600;">Supervisory Safety</div>
+        <div style="font-size:20px; font-weight:700; color:#0f766e; margin-top:8px;">🛡️ 100% Guarded</div>
+        <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Zero External Unsigned Action</div>
+      </div>
+    </div>
+    """
+
+
+def get_pending_approval_choices():
+    pending = get_pending_approvals()
+    if not pending:
+        return []
+    choices = []
+    for item in pending:
+        icon = "📄" if item["item_type"] == "proposal" else ("✉️" if item["item_type"] == "cold_email" else "💰")
+        label = f"{icon} [{item['approval_token']}] {item['title']} · {item['lead_company']} ({item['deal_amount']})"
+        choices.append(label)
+    return choices
+
+
+def load_approval_details(choice_str):
+    if not choice_str:
+        return "", "<div style='color:#94a3b8; padding:10px;'>No pending request selected.</div>", "No asset selected for review.", "", "", "Select an item to review."
+    
+    try:
+        token = choice_str.split("[")[1].split("]")[0].strip()
+    except Exception:
+        token = choice_str.strip()
+        
+    item = get_approval_by_token(token)
+    if not item:
+        return "", "<div style='color:#ef4444; padding:10px;'>Approval item not found.</div>", "Item not found in database.", "", "", "Not found."
+    
+    risk_color = "#b45309" if item['risk_level'] == "Medium" else ("#b91c1c" if item['risk_level'] == "High" else "#047857")
+    risk_bg = "#fef3c7" if item['risk_level'] == "Medium" else ("#fee2e2" if item['risk_level'] == "High" else "#d1fae5")
+    
+    meta_html = f"""
+    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:18px; margin-top:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:700; font-size:15px; color:#1e293b;">{item['title']}</span>
+        <span style="background:{risk_bg}; color:{risk_color}; padding:4px 12px; border-radius:12px; font-size:12px; font-weight:700;">Risk: {item['risk_level']}</span>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px; font-size:13px; color:#475569;">
+        <div><b>Stakeholder:</b> {item['lead_name']} ({item['lead_email']})</div>
+        <div><b>Company:</b> {item['lead_company']}</div>
+        <div><b>Deal Value:</b> <span style="font-weight:700; color:#0f766e;">{item['deal_amount']}</span></div>
+        <div><b>AI Confidence:</b> {item['ai_confidence_score']}/100</div>
+        <div><b>Requested At:</b> {item['requested_at'][:19].replace('T', ' ')}</div>
+        <div><b>Queue State:</b> <span style="color:#d97706; font-weight:700;">{item['status']}</span></div>
+      </div>
+    </div>
+    """
+    
+    draft_md = f"### 📝 AI-Generated Commercial Asset\n\n{item['ai_draft']}"
+    default_feedback = f"Verified commercial terms for {item['lead_company']} ({item['deal_amount']}). Approved for dispatch."
+    return (
+        item['approval_token'],
+        meta_html,
+        draft_md,
+        item['ai_draft'],
+        default_feedback,
+        f"Ready for review: Token `{item['approval_token']}`"
+    )
+
+
+def handle_hitl_action(token, action, feedback, edited_text, reviewer_name):
+    if not token:
+        return "❌ Please select an approval request from the queue.", get_hitl_metrics_html(), generate_hitl_history_html(), gr.update(choices=get_pending_approval_choices())
+    
+    res = process_approval_decision(
+        token_or_id=token,
+        decision=action,
+        feedback=feedback,
+        reviewed_by=reviewer_name or "Vinay Bhardwaj (Sales Operations Director)",
+        edited_text=edited_text if action == "edit" else None
+    )
+    
+    if not res.get("success"):
+        return f"❌ Error: {res.get('error')}", get_hitl_metrics_html(), generate_hitl_history_html(), gr.update(choices=get_pending_approval_choices())
+    
+    decision_type = res["decision"]
+    smtp_note = ""
+    if res.get("dispatched"):
+        details = res.get("dispatch_details", {})
+        smtp_note = f" · 📨 Dispatched via live SMTP relay (`{details.get('status', 'SENT')}` · MsgID: `{details.get('message_id', 'ok')}`)"
+    
+    status_msg = f"🛡️ **HUMAN DECISION RECORDED**: `{token}` marked as **{decision_type}** by **{res['reviewed_by']}**{smtp_note}."
+    
+    new_choices = get_pending_approval_choices()
+    new_val = new_choices[0] if new_choices else None
+    
+    return status_msg, get_hitl_metrics_html(), generate_hitl_history_html(), gr.update(choices=new_choices, value=new_val)
+
+
+def generate_hitl_history_html() -> str:
+    history = get_approval_history()
+    if not history:
+        return "<p style='color:#94a3b8; text-align:center;'>No supervisory decisions recorded yet.</p>"
+        
+    rows = []
+    for h in history:
+        st = h.get("status", "Pending")
+        badge_bg, badge_fg = ("#dcfce7", "#15803d") if "Approved" in st else (("#fee2e2", "#b91c1c") if "Rejected" in st else ("#fef3c7", "#b45309"))
+        icon = "✅" if "Approved" in st else ("❌" if "Rejected" in st else "⏳")
+        rows.append(f"""
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 14px; font-family:monospace; font-size:12px; color:#0284c7; font-weight:600;">{h.get('approval_token')}</td>
+          <td style="padding:10px 14px; font-weight:600; color:#1e293b; font-size:13px;">{h.get('title')}</td>
+          <td style="padding:10px 14px; font-size:12px; color:#475569;">{h.get('lead_company', '—')}</td>
+          <td style="padding:10px 14px; font-size:12px; color:#1e293b; font-weight:600;">{h.get('deal_amount', '—')}</td>
+          <td style="padding:10px 14px;"><span style="background:{badge_bg}; color:{badge_fg}; font-size:11px; font-weight:700; padding:3px 8px; border-radius:12px;">{icon} {st}</span></td>
+          <td style="padding:10px 14px; font-size:12px; color:#64748b;">{h.get('reviewed_by', '—')}</td>
+          <td style="padding:10px 14px; font-size:12px; color:#475569; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{h.get('human_feedback') or '—'}</td>
+          <td style="padding:10px 14px; font-size:11px; color:#94a3b8;">{(h.get('decided_at') or h.get('requested_at', ''))[:16].replace('T', ' ')}</td>
+        </tr>
+        """)
+        
+    return f"""
+    <div style="overflow-x:auto; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+      <table style="width:100%; border-collapse:collapse; text-align:left;">
+        <thead>
+          <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:12px; color:#475569;">
+            <th style="padding:10px 14px;">Token</th>
+            <th style="padding:10px 14px;">Asset Title</th>
+            <th style="padding:10px 14px;">Company</th>
+            <th style="padding:10px 14px;">Value</th>
+            <th style="padding:10px 14px;">Decision</th>
+            <th style="padding:10px 14px;">Reviewer</th>
+            <th style="padding:10px 14px;">Feedback</th>
+            <th style="padding:10px 14px;">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {''.join(rows)}
+        </tbody>
+      </table>
+    </div>
+    """
+
+
+def create_test_hitl_item():
+    import random
+    companies = [
+        ("CloudScale Systems", "David Kim (VP Ops)", "david.kim@cloudscale.net", "$60,000", "proposal"),
+        ("Apex FinTech Group", "Sarah Connor (CRO)", "sconnor@apexfin.io", "$95,000", "pricing_discount"),
+        ("Horizon Dynamics", "Liam Scott (Head of Growth)", "liam@horizondyn.com", "$40,000", "cold_email"),
+        ("OmniGlobal Logistics", "Rohan Mehta (VP Sales)", "rohan@omnilog.io", "$120,000", "proposal")
+    ]
+    comp, lead, email, val, itype = random.choice(companies)
+    
+    draft = f"""# Enterprise Commercial Agreement
+**Client Organization:** {comp}
+**Executive Sponsor:** {lead} ({email})
+**Annual Contract Value:** {val}
+**Solution Components:**
+- Full-Stack 58-Node N8N Autonomous Sales Workflow Suite
+- Multi-Agent SDR Swarm (OpenAI Agents SDK & Gemini 2.5)
+- SQLite Relational CRM Integration with Real-Time BANT Scoring
+
+*Automated AI Generation: Paused for human supervisor sign-off before dispatch.*"""
+
+    item = create_approval_request(
+        item_type=itype,
+        title=f"Commercial Document — {comp} ({val})",
+        ai_draft=draft,
+        lead_name=lead,
+        lead_company=comp,
+        lead_email=email,
+        deal_amount=val,
+        risk_level="Medium",
+        ai_confidence_score=91
+    )
+    
+    new_choices = get_pending_approval_choices()
+    selected = None
+    for c in new_choices:
+        if item["approval_token"] in c:
+            selected = c
+            break
+            
+    return (
+        f"⚡ Created new pending approval request `{item['approval_token']}` for **{comp}** ({val}).",
+        get_hitl_metrics_html(),
+        generate_hitl_history_html(),
+        gr.update(choices=new_choices, value=selected or (new_choices[0] if new_choices else None))
+    )
+
+
 def build_gradio_app():
     with gr.Blocks(
-        title="⚡ SalesFlow AI — N8N CRM & Sales Automation Platform (IIT Jammu Capstone '26)",
-        theme=THEME,
-        css=CSS
+        title="⚡ SalesFlow AI — N8N CRM & Sales Automation Platform (IIT Jammu Capstone '26)"
     ) as demo:
+        gr.HTML(f"<style>{CSS}</style>")
 
         # ── Global Hero Header ─────────────────────────────────
         gr.HTML(f"""
@@ -1662,6 +1880,7 @@ def build_gradio_app():
           </p>
           <div style="margin-top:14px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
             <span class="metric-chip">🔧 6 N8N Workflows (58 Nodes)</span>
+            <span class="metric-chip">🛡️ Human-in-the-Loop (HITL) Gate</span>
             <span class="metric-chip">📋 Interactive CRM Kanban</span>
             <span class="metric-chip">⚡ Non-AI RevOps Engine</span>
             <span class="metric-chip">💾 SQLite CRM Database</span>
@@ -1860,7 +2079,122 @@ def build_gradio_app():
                         risk_refresh_btn.click(generate_risk_matrix_html, outputs=[risk_html])
 
             # ────────────────────────────────────────────────────
-            # TAB 4: REVOPS ROI & VELOCITY SIMULATOR (NON-AI)
+            # TAB 4: HUMAN-IN-THE-LOOP (HITL) SUPERVISORY GATE
+            # ────────────────────────────────────────────────────
+            with gr.TabItem("🛡️ Human-in-the-Loop (HITL) Gate"):
+                gr.Markdown("""
+                ## 🛡️ Enterprise Human-in-the-Loop (HITL) Supervisory Center
+                **Course Rubric Requirement (FR-1.5, FR-2.5, CHK-13):** Autonomous AI agents must never perform external actions (sending commercial proposals, dispatching cold emails, committing pricing discounts) without explicit human supervisor sign-off.
+                """)
+
+                hitl_metrics_box = gr.HTML(get_hitl_metrics_html)
+
+                with gr.Row():
+                    # Left column: Queue Selector & Overview
+                    with gr.Column(scale=1):
+                        gr.Markdown("### 📥 Pending Review Queue")
+                        init_choices = get_pending_approval_choices()
+                        hitl_selector = gr.Radio(
+                            choices=init_choices,
+                            label="Select Item Awaiting Human Decision",
+                            value=init_choices[0] if init_choices else None
+                        )
+                        with gr.Row():
+                            hitl_refresh_btn = gr.Button("🔄 Refresh Queue", variant="secondary")
+                            hitl_seed_btn = gr.Button("⚡ Create Test Request", variant="secondary")
+
+                        hitl_meta_card = gr.HTML()
+                        hitl_token_holder = gr.Textbox(visible=False)
+
+                    # Right column: Inspection Cockpit & Decision
+                    with gr.Column(scale=2):
+                        gr.Markdown("### 🔍 Supervisory Inspection Cockpit")
+                        hitl_draft_view = gr.Markdown()
+
+                        with gr.Accordion("✏️ Reviewer Edit & Override Panel (Optional)", open=False):
+                            gr.Markdown("*Adjust terms, SLAs, pricing discounts, or copy before granting approval:*")
+                            hitl_edit_box = gr.Textbox(lines=8, label="Editable Draft Content", interactive=True)
+
+                        with gr.Row():
+                            hitl_reviewer = gr.Dropdown(
+                                choices=[
+                                    "Vinay Bhardwaj (Sales Operations Director)",
+                                    "Sarah Jenkins (Senior Enterprise AE)",
+                                    "Michael Chang (Commercial Sales Lead)"
+                                ],
+                                value="Vinay Bhardwaj (Sales Operations Director)",
+                                label="Reviewing Stakeholder"
+                            )
+                            hitl_feedback_input = gr.Textbox(
+                                label="Manager Supervisory Note / Feedback",
+                                value="Verified standard enterprise terms and commercial scope.",
+                                placeholder="Enter feedback for SDR agent RLHF or approval rationale..."
+                            )
+
+                        with gr.Row():
+                            hitl_approve_btn = gr.Button("✅ Approve & Dispatch Now", variant="primary", scale=2)
+                            hitl_edit_approve_btn = gr.Button("✏️ Save Edits & Approve", variant="secondary", scale=1)
+                            hitl_reject_btn = gr.Button("❌ Reject & Send for Rework", variant="stop", scale=1)
+
+                        hitl_status_msg = gr.Markdown()
+
+                gr.Markdown("---")
+                gr.Markdown("### 📜 Audit Trail: Past Supervisory Decisions & Human Actions")
+                hitl_history_table = gr.HTML(generate_hitl_history_html)
+
+                # Wire HITL events
+                hitl_selector.change(
+                    load_approval_details,
+                    inputs=[hitl_selector],
+                    outputs=[hitl_token_holder, hitl_meta_card, hitl_draft_view, hitl_edit_box, hitl_feedback_input, hitl_status_msg]
+                )
+
+                demo.load(
+                    lambda: load_approval_details(get_pending_approval_choices()[0] if get_pending_approval_choices() else ""),
+                    outputs=[hitl_token_holder, hitl_meta_card, hitl_draft_view, hitl_edit_box, hitl_feedback_input, hitl_status_msg]
+                )
+
+                def on_refresh_hitl():
+                    choices = get_pending_approval_choices()
+                    val = choices[0] if choices else None
+                    details = load_approval_details(val) if val else ("", "<p style='color:#94a3b8; padding:10px;'>No pending requests.</p>", "No items awaiting review.", "", "", "Queue refreshed.")
+                    return (
+                        gr.update(choices=choices, value=val),
+                        get_hitl_metrics_html(),
+                        generate_hitl_history_html(),
+                        details[0], details[1], details[2], details[3], details[4], details[5]
+                    )
+
+                hitl_refresh_btn.click(
+                    on_refresh_hitl,
+                    outputs=[hitl_selector, hitl_metrics_box, hitl_history_table, hitl_token_holder, hitl_meta_card, hitl_draft_view, hitl_edit_box, hitl_feedback_input, hitl_status_msg]
+                )
+
+                hitl_seed_btn.click(
+                    create_test_hitl_item,
+                    outputs=[hitl_status_msg, hitl_metrics_box, hitl_history_table, hitl_selector]
+                )
+
+                hitl_approve_btn.click(
+                    lambda tok, fb, ed, rev: handle_hitl_action(tok, "approve", fb, ed, rev),
+                    inputs=[hitl_token_holder, hitl_feedback_input, hitl_edit_box, hitl_reviewer],
+                    outputs=[hitl_status_msg, hitl_metrics_box, hitl_history_table, hitl_selector]
+                )
+
+                hitl_edit_approve_btn.click(
+                    lambda tok, fb, ed, rev: handle_hitl_action(tok, "edit", fb, ed, rev),
+                    inputs=[hitl_token_holder, hitl_feedback_input, hitl_edit_box, hitl_reviewer],
+                    outputs=[hitl_status_msg, hitl_metrics_box, hitl_history_table, hitl_selector]
+                )
+
+                hitl_reject_btn.click(
+                    lambda tok, fb, ed, rev: handle_hitl_action(tok, "reject", fb, ed, rev),
+                    inputs=[hitl_token_holder, hitl_feedback_input, hitl_edit_box, hitl_reviewer],
+                    outputs=[hitl_status_msg, hitl_metrics_box, hitl_history_table, hitl_selector]
+                )
+
+            # ────────────────────────────────────────────────────
+            # TAB 5: REVOPS ROI & VELOCITY SIMULATOR (NON-AI)
             # ────────────────────────────────────────────────────
             with gr.TabItem("📈 RevOps ROI & Velocity Simulator"):
                 gr.Markdown("""

@@ -247,3 +247,60 @@ def test_competitor_battlecards_rag():
     knowledge = search_sales_knowledge("What about Salesforce?")
     assert "Salesforce" in knowledge
 
+
+def test_human_in_the_loop_supervisory_system():
+    """Verify Human-in-the-Loop (HITL) queue creation, supervisory approval, rejection, and API."""
+    from tools.crm_database import (
+        create_approval_request, get_pending_approvals, get_approval_by_token,
+        process_approval_decision, get_approval_history
+    )
+    from fastapi.testclient import TestClient
+    from api_server import app
+
+    # 1. Enqueue new proposal approval
+    item = create_approval_request(
+        item_type="proposal",
+        title="Test Enterprise Contract",
+        ai_draft="Commercial Draft for Review",
+        lead_name="Test Sponsor",
+        lead_company="Test Corp",
+        lead_email="test@testcorp.com",
+        deal_amount="$50,000",
+        risk_level="Low"
+    )
+    token = item["approval_token"]
+    assert token.startswith("HITL-AUTH-")
+    
+    # 2. Check pending
+    pending = get_pending_approvals()
+    tokens = [p["approval_token"] for p in pending]
+    assert token in tokens
+    
+    # 3. Test Human Edit & Approval
+    dec_res = process_approval_decision(
+        token_or_id=token,
+        decision="edit",
+        feedback="Adjusted payment schedule",
+        reviewed_by="Sales Director",
+        edited_text="Final Human-Approved Proposal"
+    )
+    assert dec_res["success"] is True
+    assert dec_res["decision"] == "Approved (Human Edited)"
+    
+    # 4. Verify token state updated
+    updated = get_approval_by_token(token)
+    assert updated["status"] == "Approved (Human Edited)"
+    assert updated["human_feedback"] == "Adjusted payment schedule"
+    assert updated["ai_draft"] == "Final Human-Approved Proposal"
+    
+    # 5. Verify FastAPI HITL endpoints
+    client = TestClient(app)
+    resp = client.get("/api/hitl/pending")
+    assert resp.status_code == 200
+    assert "pending_count" in resp.json()
+    
+    hist_resp = client.get("/api/hitl/history")
+    assert hist_resp.status_code == 200
+    assert "total_decisions" in hist_resp.json()
+
+

@@ -122,6 +122,27 @@ def init_database():
             logged_at       TEXT,
             FOREIGN KEY(lead_id) REFERENCES leads(lead_id)
         );
+
+        CREATE TABLE IF NOT EXISTS hitl_approvals (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            approval_token      TEXT UNIQUE,
+            lead_id             TEXT,
+            item_type           TEXT,
+            title               TEXT,
+            lead_name           TEXT,
+            lead_company        TEXT,
+            lead_email          TEXT,
+            deal_amount         TEXT,
+            ai_draft            TEXT,
+            risk_level          TEXT DEFAULT 'Medium',
+            ai_confidence_score INTEGER DEFAULT 85,
+            status              TEXT DEFAULT 'Pending',
+            human_feedback      TEXT,
+            reviewed_by         TEXT,
+            requested_at        TEXT,
+            decided_at          TEXT,
+            FOREIGN KEY(lead_id) REFERENCES leads(lead_id)
+        );
     """)
     conn.commit()
     conn.close()
@@ -436,6 +457,307 @@ def log_objection(lead_id: str, objection_text: str, obj_type: str, rebuttal: st
     """, (lead_id, objection_text, obj_type, rebuttal, outcome, datetime.now().isoformat()))
     conn.commit()
     conn.close()
+
+
+# ── Human-in-the-Loop (HITL) Supervisory Approvals ─────────────
+
+def create_approval_request(
+    item_type: str,
+    title: str,
+    ai_draft: str,
+    lead_id: Optional[str] = None,
+    lead_name: str = "",
+    lead_company: str = "",
+    lead_email: str = "",
+    deal_amount: str = "$45,000",
+    risk_level: str = "Medium",
+    ai_confidence_score: int = 88,
+    approval_token: Optional[str] = None
+) -> dict:
+    """Enqueue a new AI-generated asset into the Human-in-the-Loop approval queue."""
+    init_database()
+    conn = get_connection()
+    c = conn.cursor()
+    
+    if not approval_token:
+        import uuid
+        short_id = uuid.uuid4().hex[:6].upper()
+        approval_token = f"HITL-AUTH-{short_id}"
+        
+    now = datetime.now().isoformat()
+    
+    c.execute("""
+        INSERT OR REPLACE INTO hitl_approvals (
+            approval_token, lead_id, item_type, title, lead_name, lead_company, lead_email,
+            deal_amount, ai_draft, risk_level, ai_confidence_score, status, requested_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
+    """, (
+        approval_token, lead_id, item_type, title, lead_name, lead_company, lead_email,
+        deal_amount, ai_draft, risk_level, ai_confidence_score, now
+    ))
+    row_id = c.lastrowid
+    conn.commit()
+    
+    # Also log into activities audit log
+    if lead_id:
+        c.execute("""
+            INSERT INTO activities (lead_id, activity_type, description, outcome, performed_by, created_at)
+            VALUES (?, 'hitl_approval_requested', ?, 'pending', 'SalesAI HITL Gate', ?)
+        """, (lead_id, f"HITL Queued: {title} (Token: {approval_token})", now))
+        conn.commit()
+        
+    conn.close()
+    return {
+        "id": row_id,
+        "approval_token": approval_token,
+        "status": "Pending",
+        "title": title,
+        "lead_name": lead_name,
+        "lead_company": lead_company,
+        "deal_amount": deal_amount,
+        "requested_at": now
+    }
+
+
+def get_pending_approvals() -> List[Dict]:
+    """Retrieve all pending approval requests awaiting human manager review."""
+    init_database()
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM hitl_approvals WHERE status='Pending' ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_approval_by_token(token: str) -> Optional[Dict]:
+    """Look up an approval request by its unique verification token."""
+    init_database()
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM hitl_approvals WHERE approval_token=?", (token,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_approval_by_id(approval_id: int) -> Optional[Dict]:
+    """Look up an approval request by its integer database ID."""
+    init_database()
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM hitl_approvals WHERE id=?", (approval_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_approval_history() -> List[Dict]:
+    """Retrieve full audit log of all human supervisory decisions."""
+    init_database()
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM hitl_approvals ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def process_approval_decision(
+    token_or_id: str,
+    decision: str,
+    feedback: str = "",
+    reviewed_by: str = "Vinay Bhardwaj (Sales Operations Director)",
+    edited_text: Optional[str] = None
+) -> dict:
+    """
+    Execute a human supervisory decision (Approve, Reject, or Edit).
+    Updates database, dispatches real SMTP email if approved, and records audit trail.
+    """
+    init_database()
+    conn = get_connection()
+    c = conn.cursor()
+    
+    # Find record
+    if str(token_or_id).isdigit():
+        row = c.execute("SELECT * FROM hitl_approvals WHERE id=?", (int(token_or_id),)).fetchone()
+    else:
+        row = c.execute("SELECT * FROM hitl_approvals WHERE approval_token=?", (str(token_or_id),)).fetchone()
+        
+    if not row:
+        conn.close()
+        return {"success": False, "error": f"Approval request '{token_or_id}' not found."}
+        
+    rec = dict(row)
+    now = datetime.now().isoformat()
+    action = decision.strip().lower()
+    
+    new_status = "Approved"
+    final_draft = edited_text if (action == "edit" and edited_text) else rec["ai_draft"]
+    if action == "reject":
+        new_status = "Rejected"
+    elif action == "edit":
+        new_status = "Approved (Human Edited)"
+        
+    c.execute("""
+        UPDATE hitl_approvals
+        SET status = ?, human_feedback = ?, reviewed_by = ?, ai_draft = ?, decided_at = ?
+        WHERE id = ?
+    """, (new_status, feedback, reviewed_by, final_draft, now, rec["id"]))
+    conn.commit()
+    
+    # Audit log entry
+    lead_id = rec.get("lead_id")
+    if lead_id:
+        activity_type = "hitl_approved" if "Approved" in new_status else "hitl_rejected"
+        c.execute("""
+            INSERT INTO activities (lead_id, activity_type, description, outcome, performed_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            lead_id,
+            activity_type,
+            f"Human Decision [{new_status}]: {rec['title']} — Feedback: {feedback or 'Standard Approval'}",
+            new_status.lower(),
+            reviewed_by,
+            now
+        ))
+        
+        # If approved proposal or email, advance lead CRM pipeline stage
+        if "Approved" in new_status:
+            target_stage = "Proposal Sent" if rec["item_type"] == "proposal" else "Contacted"
+            c.execute("""
+                UPDATE leads
+                SET pipeline_stage = ?, updated_at = ?
+                WHERE lead_id = ?
+            """, (target_stage, now, lead_id))
+            
+        conn.commit()
+        
+    # If approved and an email address is present, send live dispatch via SMTP
+    dispatch_result = None
+    if "Approved" in new_status and rec.get("lead_email"):
+        try:
+            from tools.email_sender import send_email
+            subject = f"{rec['title']}"
+            html_content = f"<h3>SalesFlow AI — Verified Commercial Document</h3>\n<pre>{final_draft}</pre>"
+            dispatch_result = send_email(
+                to_email=rec["lead_email"],
+                subject=subject,
+                html_body=html_content,
+                plain_text=final_draft
+            )
+        except Exception as e:
+            dispatch_result = {"status": "DISPATCH_FALLBACK", "error": str(e)}
+            
+    conn.close()
+    return {
+        "success": True,
+        "id": rec["id"],
+        "token": rec["approval_token"],
+        "decision": new_status,
+        "reviewed_by": reviewed_by,
+        "feedback": feedback,
+        "dispatched": bool(dispatch_result),
+        "dispatch_details": dispatch_result,
+        "decided_at": now
+    }
+
+
+def seed_default_hitl_queue():
+    """Seeds rich, realistic pending human approval requests if the queue is empty."""
+    init_database()
+    pending = get_pending_approvals()
+    if len(pending) >= 2:
+        return
+        
+    default_items = [
+        {
+            "item_type": "proposal",
+            "title": "Commercial Enterprise Agreement — TechVision Solutions ($45,000 ARR)",
+            "lead_name": "Priya Sharma",
+            "lead_company": "TechVision Solutions",
+            "lead_email": "priya.sharma@techvision.io",
+            "deal_amount": "$45,000",
+            "risk_level": "Medium",
+            "ai_confidence_score": 93,
+            "approval_token": "HITL-AUTH-7A2B9C",
+            "ai_draft": """# Commercial Enterprise Proposal
+**Prepared For:** TechVision Solutions
+**Primary Stakeholder:** Priya Sharma, VP of Technology
+**Contract Value:** $45,000 / year (Billed Annually)
+**Term:** 12 Months with 99.9% Production SLA
+
+### 1. Executive Summary
+TechVision Solutions requires end-to-end inbound pipeline acceleration to automate manual lead triage. SalesFlow AI provides 6 autonomous orchestration pipelines integrated with PostgreSQL CRM persistence.
+
+### 2. Solution Scope
+- Full 58-Node Autonomous Workflow Suite (Lead Capture, BANT Scoring, Rep Routing, Cadence, HITL Gates)
+- Multi-Agent SDR Swarm powered by OpenAI Agents SDK & Gemini 2.5
+- Real-time Relational Telemetry & RevOps Velocity Dashboard
+
+### 3. Pricing & Terms
+- Base Platform Fee: $35,000 / year
+- 25 Enterprise Agent Seats: $10,000 / year
+- Payment Terms: Net 30, Annual Prepay
+
+*Human Supervisor Review Required: Verify 99.9% custom SLA indemnity clause before dispatch.*"""
+        },
+        {
+            "item_type": "cold_email",
+            "title": "High-Touch Executive Touchpoint #1 — Starlight Networks",
+            "lead_name": "Marcus Vance",
+            "lead_company": "Starlight Networks",
+            "lead_email": "marcus@starlight.io",
+            "deal_amount": "$75,000",
+            "risk_level": "Low",
+            "ai_confidence_score": 96,
+            "approval_token": "HITL-AUTH-3E4F1A",
+            "ai_draft": """Subject: Marcus, quick question on Starlight Networks' SDR ramp
+
+Hi Marcus,
+
+Noticed Starlight Networks recently expanded your engineering footprint to support your B2B SaaS platform. Most CTOs we partner with find that as inbound inquiries scale past 200/mo, account executives spend 35% of their week on manual CRM entry rather than closing deals.
+
+We recently helped an infrastructure peer automate inbound qualification with deterministic n8n workflows and agentic routing, boosting sales velocity by 3.8x.
+
+Would you have 10 minutes this Thursday at 2:00 PM EST for a brief technical architecture walkthrough?
+
+Best regards,
+Vinay Bhardwaj
+Account Executive | SalesFlow AI
+Phone: +1-555-0199"""
+        },
+        {
+            "item_type": "pricing_discount",
+            "title": "Volume Discount Authorization (22% off ARR) — CyberShield Security",
+            "lead_name": "Elena Rostova",
+            "lead_company": "CyberShield Security",
+            "lead_email": "elena@cybershield.com",
+            "deal_amount": "$117,000",
+            "risk_level": "High",
+            "ai_confidence_score": 82,
+            "approval_token": "HITL-AUTH-9D8C2E",
+            "ai_draft": """### Discount Authorization Request
+**Account:** CyberShield Security (Lead ID: LEAD-2026-002)
+**Authorized Representative:** Sarah Jenkins (Enterprise AE)
+**Requested Discount:** 22% (Standard ceiling is 15%)
+**Original ARR:** $150,000 | **Discounted ARR:** $117,000
+
+**Business Justification:**
+- Prospect committed in writing to a 3-Year Master Service Agreement ($351,000 Total Contract Value).
+- CyberShield will serve as a tier-1 public reference customer for our SOC2 Type II compliance module.
+- 100% upfront annual cash payment via wire transfer.
+
+*Human Manager Sign-off required: CFO / Sales Director authorization mandatory for discounts > 15%.*"""
+        }
+    ]
+    
+    for item in default_items:
+        create_approval_request(**item)
+
+
+# Seed on database initialization
+seed_default_hitl_queue()
 
 
 # Initialize on import

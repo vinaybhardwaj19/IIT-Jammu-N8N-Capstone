@@ -67,10 +67,12 @@ Once deployed, your single public URL serves everything:
    - Workflow Blueprint Gallery (All 6 workflows / 58 nodes)
    - Live Workflow Runner (Safe Simulation & Live Webhook)
    - Centralized CRM Kanban & Deal Pipeline
+   - 🛡️ Human-in-the-Loop (HITL) Supervisory Center (Approve, Edit, Reject, live SMTP dispatch)
    - Deterministic RevOps ROI Simulator
    - AI Sales Copilot (Research, BANT Qualification, Cadence, Meeting Scheduler, Objections)
    - Competitor Battlecards (RAG)
 2. **REST API Swagger Documentation:** `https://your-service.onrender.com/docs`
-3. **Live Webhook Receiver:** `https://your-service.onrender.com/webhook/n8n`
-4. **Health Check Probe:** `https://your-service.onrender.com/health` (Returns HTTP 200)
+3. **HITL Supervisory API:** `https://your-service.onrender.com/api/hitl/pending` & `/api/hitl/approve`
+4. **Live Webhook Receiver:** `https://your-service.onrender.com/webhook/n8n`
+5. **Health Check Probe:** `https://your-service.onrender.com/health` (Returns HTTP 200)
 

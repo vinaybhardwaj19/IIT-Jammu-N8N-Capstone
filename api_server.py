@@ -56,7 +56,9 @@ from salesai_agents.deal_health_agent import DealHealthAgent
 from tools.knowledge_rag import query_battlecard, get_roi_summary, search_sales_knowledge, BATTLECARDS
 from tools.crm_database import (
     get_all_leads, get_pipeline_stats, upsert_lead, get_lead,
-    update_lead_stage, init_database, log_activity, get_activities
+    update_lead_stage, init_database, log_activity, get_activities,
+    get_pending_approvals, get_approval_history, process_approval_decision,
+    create_approval_request, seed_default_hitl_queue, get_approval_by_token
 )
 from tools.email_sender import send_cold_email, simulate_email_send, get_smtp_status
 from workflow_node_engine import run_node_pipeline
@@ -196,6 +198,24 @@ class ObjectionRequest(BaseModel):
     lead_id: Optional[str] = None
     lead_company: str = ""
     industry: str = ""
+
+class HITLDecisionRequest(BaseModel):
+    token: str
+    reviewed_by: Optional[str] = "Vinay Bhardwaj (Sales Operations Director)"
+    feedback: Optional[str] = ""
+    edited_text: Optional[str] = None
+
+class HITLCreateRequest(BaseModel):
+    item_type: str = "proposal"
+    title: str
+    ai_draft: str
+    lead_id: Optional[str] = None
+    lead_name: str = ""
+    lead_company: str = ""
+    lead_email: str = ""
+    deal_amount: str = "$45,000"
+    risk_level: str = "Medium"
+    ai_confidence_score: int = 88
 
 
 # ── Health Check ──────────────────────────────────────────────
@@ -573,6 +593,80 @@ def revenue_forecast():
         return agents()["crm"].run({"action": "forecast"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Human-in-the-Loop (HITL) Supervisory Endpoints ─────────────
+
+@app.get("/api/hitl/pending")
+def list_pending_approvals():
+    """List all AI-generated assets pending human review and sign-off."""
+    return {"pending_count": len(get_pending_approvals()), "approvals": get_pending_approvals()}
+
+@app.get("/api/hitl/history")
+def list_approval_history():
+    """List full audit trail of human supervisory approvals and rejections."""
+    history = get_approval_history()
+    return {"total_decisions": len(history), "history": history}
+
+@app.get("/api/hitl/{token_or_id}")
+def get_approval_item(token_or_id: str):
+    """Retrieve details of a single approval request."""
+    item = get_approval_by_token(token_or_id)
+    if not item and token_or_id.isdigit():
+        from tools.crm_database import get_approval_by_id
+        item = get_approval_by_id(int(token_or_id))
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Approval request '{token_or_id}' not found.")
+    return item
+
+@app.post("/api/hitl/approve")
+def approve_request(req: HITLDecisionRequest):
+    """Approve an AI draft and trigger real action (SMTP email / CRM stage progression)."""
+    res = process_approval_decision(
+        token_or_id=req.token,
+        decision="approve",
+        feedback=req.feedback or "Approved by manager",
+        reviewed_by=req.reviewed_by or "Sales Director",
+        edited_text=req.edited_text
+    )
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error", "Approval failed"))
+    return res
+
+@app.post("/api/hitl/reject")
+def reject_request(req: HITLDecisionRequest):
+    """Reject an AI draft and record corrective human feedback for the SDR agent."""
+    res = process_approval_decision(
+        token_or_id=req.token,
+        decision="reject",
+        feedback=req.feedback or "Rejected by manager — requires rework",
+        reviewed_by=req.reviewed_by or "Sales Director"
+    )
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error", "Rejection failed"))
+    return res
+
+@app.post("/api/hitl/edit")
+def edit_and_approve_request(req: HITLDecisionRequest):
+    """Save human manager edits and approve with custom terms."""
+    if not req.edited_text:
+        raise HTTPException(status_code=400, detail="Edited text is required for edit-and-approve.")
+    res = process_approval_decision(
+        token_or_id=req.token,
+        decision="edit",
+        feedback=req.feedback or "Approved with human edits",
+        reviewed_by=req.reviewed_by or "Sales Director",
+        edited_text=req.edited_text
+    )
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error", "Edit approval failed"))
+    return res
+
+@app.post("/api/hitl/seed")
+def seed_hitl_queue():
+    """Seed test approval items into the HITL queue for live evaluator demonstrations."""
+    seed_default_hitl_queue()
+    return {"status": "seeded", "pending": get_pending_approvals()}
 
 
 # ── N8N Webhook ───────────────────────────────────────────────
